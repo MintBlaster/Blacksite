@@ -1,72 +1,75 @@
+A modular, physics-first game engine for C++ — built for real-time destruction, vehicles, and dynamic worlds.
+
+
 # Blacksite Engine
 
-A modern graphics and physics engine built in C++ for game development.
+**Blacksite** is a C++ game engine focused on real-time physics, destruction, and simulation. Designed for developers who want a "physics-first" experience — where every object is dynamic by default, destruction is built-in, and gameplay emerges from interaction.
 
 ## Features
 
-- **Graphics**: OpenGL-based rendering with modern shader support
-- **Physics**: Bullet Physics integration for realistic simulations  
-- **Cross-platform**: Linux, Windows, macOS support
-- **Modular**: Clean separation of graphics, physics, input, and core systems
+- **Physics-First Architecture**  
+  Bullet Physics is core, not an afterthought — simulate rigidbodies, collisions, and dynamic environments out of the box.
 
-## Dependencies
+- **Modern Graphics**  
+  OpenGL rendering with a clean pipeline, shader support, and GLM for math utilities.
 
-- OpenGL 3.3+
-- GLFW 3.x
-- GLEW
-- GLM (OpenGL Mathematics)
-- Bullet Physics
-- Assimp (3D model loading)
+- **Modular Design**  
+  Clear separation of core systems: rendering, physics, input, asset loading.
 
-## Building on Arch Linux
+- **Cross-Platform**  
+  Works on Linux, Windows, and macOS with minimal setup.
 
-### Install Dependencies
-```bash
-sudo pacman -S base-devel cmake git
-sudo pacman -S mesa vulkan-devel glfw-x11 glew glm bullet assimp
+- **Clean API**  
+  Simple interfaces to spawn objects, apply forces, simulate vehicles, and more.
+
+## Planned API Design
+
+```cpp
+#include <blacksite.h>
+
+int main() {
+    auto engine = Blacksite::Engine();
+    auto scene = engine.CreateScene();
+    
+    auto car = scene.CreateVehicle("car.obj");
+    car.SetPosition({0, 1, 0});
+    
+    auto ground = scene.CreatePlane();
+    ground.SetMaterial(Material::ASPHALT);
+    
+    return engine.Run();
+}
 ```
 
-### Build
-```bash
-mkdir build && cd build
-cmake ..
-make
-./blacksite_test
-```
+> **Note:** This is the planned API design. The engine is currently in early development.
 
-## Project Structure
+## Current Status
 
-```
-blacksite/
-├── include/blacksite/     # Public headers
-│   ├── core/             # Engine core systems
-│   ├── graphics/         # Rendering components
-│   ├── physics/          # Physics integration
-│   └── input/            # Input handling
-├── src/                  # Implementation files
-├── shaders/              # GLSL shaders
-├── assets/               # Game assets
-└── examples/             # Usage examples
-```
+**⚠️ Early Development**  
+Core systems (graphics + physics) are being prototyped. Expect minimal functionality, no stable API yet.
 
-## Status
 
-🚧 **In Development** - Basic setup complete, implementing core systems
+## Why Physics-First?
 
-## Goals
+Unlike traditional engines where physics is optional, **Blacksite** treats every object as physical by default. This enables:
 
-- [ ] Core engine architecture
-- [ ] Basic 3D rendering pipeline
-- [ ] Physics world integration
-- [ ] Input system
-- [ ] Asset loading
-- [ ] Scene management
-- [ ] Audio system
+- Rapid prototyping of destruction-heavy mechanics
+- Realistic vehicle and environment simulation
+- Cleaner APIs for building interactive worlds
+
 
 ## Contributing
 
-This is a learning project, but contributions and suggestions are welcome!
+The engine is in early development. If you're interested in contributing to a physics-first game engine, feel free to open an issue to discuss ideas or reach out about specific systems you'd like to work on.
+
+Areas that will need attention:
+- Core architecture design
+- Graphics pipeline optimization
+- Physics system integration
+- Cross-platform compatibility
+- Documentation and examples
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License  
+Use it. Break it. Build something wild with it.

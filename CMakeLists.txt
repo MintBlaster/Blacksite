@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(Blacksite VERSION 1.0.0)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -9,38 +11,52 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-# Find required packages
+# Required packages
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(glm REQUIRED)
-find_package(PkgConfig REQUIRED)
 find_package(assimp REQUIRED)
 
-# Find Bullet Physics using pkg-config (more reliable on Arch)
-pkg_check_modules(BULLET REQUIRED bullet)
-
-# Include directories
-include_directories(include)
-include_directories(${BULLET_INCLUDE_DIRS})
-include_directories(/usr/include/bullet)
-
-# Source files (will be empty initially)
+# Source files
 file(GLOB_RECURSE BLACKSITE_SOURCES "src/*/*.cpp")
 file(GLOB_RECURSE BLACKSITE_HEADERS "include/blacksite/*/*.h")
 
-# Test executable to verify setup
+# -------------------------------
+# Jolt Physics setup
+set(JOLT_DIR ${CMAKE_SOURCE_DIR}/third_party/JoltPhysics)
+set(JOLT_SRC_DIR ${JOLT_DIR}/Jolt)
+
+file(GLOB_RECURSE JOLT_SOURCES
+    ${JOLT_SRC_DIR}/*.cpp
+)
+
+add_library(JoltPhysics STATIC ${JOLT_SOURCES})
+
+target_include_directories(JoltPhysics PUBLIC
+    ${JOLT_DIR}
+    ${JOLT_SRC_DIR}
+)
+
+# Optional: silence warnings from Jolt
+target_compile_options(JoltPhysics PRIVATE -w)
+# -------------------------------
+
+# Test executable
 add_executable(blacksite_test
     src/main.cpp
     ${BLACKSITE_SOURCES}
 )
 
-# Link libraries
+target_include_directories(blacksite_test PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+)
+
 target_link_libraries(blacksite_test
     OpenGL::GL
     glfw
     GLEW::GLEW
-    ${BULLET_LIBRARIES}
+    JoltPhysics
     assimp::assimp
 )
 
@@ -51,11 +67,11 @@ target_compile_options(blacksite_test PRIVATE
     $<$<CONFIG:Release>:-O3>
 )
 
-# Print setup info
+# Setup summary
 message(STATUS "Blacksite Engine Setup")
 message(STATUS "OpenGL found: ${OPENGL_FOUND}")
 message(STATUS "GLFW found: ${glfw3_FOUND}")
 message(STATUS "GLEW found: ${GLEW_FOUND}")
-message(STATUS "Bullet include: ${BULLET_INCLUDE_DIRS}")
-message(STATUS "Bullet libraries: ${BULLET_LIBRARIES}")
+message(STATUS "Assimp found: ${assimp_FOUND}")
+message(STATUS "Jolt integrated from: ${JOLT_DIR}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")

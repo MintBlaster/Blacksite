@@ -1,0 +1,48 @@
+# Blacksite Engine Clang Format Configuration
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Allman
+
+PointerAlignment: Left
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+
+NamespaceIndentation: All
+IndentCaseLabels: true
+AlwaysBreakTemplateDeclarations: Yes
+SortIncludes: CaseInsensitive
+
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex:           '^<.*\.h>'
+    Priority:        1
+    SortPriority:    1
+  - Regex:           '^"blacksite/.*"'
+    Priority:        2
+    SortPriority:    2
+  - Regex:           '.*'
+    Priority:        3
+    SortPriority:    3
+
+ReflowComments: true
+CommentPragmas: '^ IWYU pragma:'
+
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+SpacesInAngles: Never
+Standard: c++17
+
+# Keeps constructor initializer lists readable
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+# Function declaration wrapping
+AlwaysBreakAfterReturnType: None
+AlignAfterOpenBracket: Align
