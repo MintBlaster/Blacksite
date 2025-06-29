@@ -109,5 +109,4 @@ Open an issue or pull request if you're serious.
 ## License
 
 MIT
-
-No strings attached. Use it, fork it, break it, rebuild it.
+Use it, fork it, break it, rebuild it.
