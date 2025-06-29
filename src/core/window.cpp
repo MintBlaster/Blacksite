@@ -1,10 +1,3 @@
-//============================================================
-// Blacksite Engine | Window | window.cpp
-//------------------------------------------------------------
-// Manages OpenGL windows creationg and events.
-//============================================================
-
-
 #include "blacksite/core/window.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -18,13 +11,16 @@ namespace Blacksite
         Shutdown();
     }
 
-    bool Window::Initialize(int width, int height, const std::string &title){
+    bool Window::Initialize(int width, int height, const std::string& title)
+    {
 
         m_width = width;
         m_height = height;
 
-        if (!glfwInit()){
+        if (!glfwInit())
+        {
             std::cerr << "Failed to initialize GLFW " << std::endl;
+            Shutdown();
             return false;
         }
 
@@ -36,7 +32,8 @@ namespace Blacksite
         // --- Create actual window ---
         m_window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 
-        if (!m_window){
+        if (!m_window)
+        {
             std::cerr << "Failed to create GLFW window." << std::endl;
             glfwTerminate();
             return false;
@@ -45,7 +42,8 @@ namespace Blacksite
         glfwMakeContextCurrent(m_window); // [OP] Make this window's context current
 
         // --- Load OpenGL Functions ---
-        if (glewInit() != GLEW_OK){
+        if (glewInit() != GLEW_OK)
+        {
 
             std::cerr << "Failed to initialize glew" << std::endl;
             return false;
@@ -56,27 +54,31 @@ namespace Blacksite
         glEnable(GL_DEPTH_TEST);
 
         return true;
-
     }
 
-    void Window::Shutdown() {
-        if (m_window){
+    void Window::Shutdown()
+    {
+        if (m_window)
+        {
             glfwDestroyWindow(m_window);
             m_window = nullptr;
         }
         glfwTerminate();
     }
 
-    bool Window::ShouldClose() const {
+    bool Window::ShouldClose() const
+    {
 
         return glfwWindowShouldClose(m_window);
     }
 
-    void Window::SwapBuffers() {
+    void Window::SwapBuffers()
+    {
         glfwSwapBuffers(m_window);
     }
 
-    void Window::PollEvents(){
+    void Window::PollEvents()
+    {
         glfwPollEvents();
     }
 

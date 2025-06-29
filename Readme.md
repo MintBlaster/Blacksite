@@ -1,75 +1,113 @@
-A modular, physics-first game engine for C++ — built for real-time destruction, vehicles, and dynamic worlds.
-
-
 # Blacksite Engine
 
-**Blacksite** is a C++ game engine focused on real-time physics, destruction, and simulation. Designed for developers who want a "physics-first" experience — where every object is dynamic by default, destruction is built-in, and gameplay emerges from interaction.
+**Blacksite** is a modular, physics-first C++ game engine built for real-time destruction, vehicles, and dynamic, interactive worlds. Powered by [Jolt Physics](https://github.com/jrouwe/JoltPhysics), it flips the usual game engine flow: **physics is the foundation**, not an optional plugin.
 
-## Features
+## Highlights
 
 - **Physics-First Architecture**  
-  Bullet Physics is core, not an afterthought — simulate rigidbodies, collisions, and dynamic environments out of the box.
+  Every object is dynamic by default. Rigidbodies, collisions, and forces aren't bolted on — they *are* the system. Powered by Jolt Physics.
 
-- **Modern Graphics**  
-  OpenGL rendering with a clean pipeline, shader support, and GLM for math utilities.
+- **Modular Core**  
+  Clean separation between engine subsystems: windowing, physics, rendering, input, asset loading — you plug in what you need.
 
-- **Modular Design**  
-  Clear separation of core systems: rendering, physics, input, asset loading.
+- **Modern Rendering Stack**  
+  OpenGL (for now) with GLM math, shader support, and a clean pipeline coming next.
 
 - **Cross-Platform**  
-  Works on Linux, Windows, and macOS with minimal setup.
+  Actively tested on Linux. Windows/macOS coming soon. No engine-specific IDE lock-in.
 
-- **Clean API**  
-  Simple interfaces to spawn objects, apply forces, simulate vehicles, and more.
+- **Clean AF API**  
+  + Declarative API
+  + Spawn objects with physics in one line. No setup, Just behavior.
 
-## Planned API Design
+---
+
+## Physics-First API Design
 
 ```cpp
 #include <blacksite.h>
 
 int main() {
-    auto engine = Blacksite::Engine();
+    Blacksite::Engine engine;
+    engine.Init();
+    
     auto scene = engine.CreateScene();
     
-    auto car = scene.CreateVehicle("car.obj");
-    car.SetPosition({0, 1, 0});
+    // Everything is a physical object by default
+    auto cube = scene.Spawn("cube.obj")  // Loads mesh + creates physics body
+        .At({0, 5, 0})
+        .WithMass(2.5f)
+        .Push({0, 0, 10});  // Instantly has physics
     
-    auto ground = scene.CreatePlane();
-    ground.SetMaterial(Material::ASPHALT);
+    // Static objects opt-out of dynamics
+    auto ground = scene.Spawn()
+        .AsPlane()
+        .Material(Material::ASPHALT)
+        .MakeStatic();  // Only way to disable physics
     
-    return engine.Run();
+    // UI elements live in screen space, not physics space
+    auto hud = scene.UI()
+        .Text("Score: 0")
+        .At({10, 10});
+    
+    return engine.Run(); // Starts fixed-step simulation + rendering loop
 }
 ```
 
-> **Note:** This is the planned API design. The engine is currently in early development.
+**🛠️ API Breakdown:**
+- `Spawn("cube.obj")` → loads mesh, creates physics body, makes it dynamic
+- `Spawn()` → creates empty dynamic object (add shape with `.AsPlane()`, `.AsSphere()`, etc.)
+- `.MakeStatic()` → only way to disable physics (opt-out, not opt-in)
+- `scene.UI()` → separate from physics space entirely
+
+✅ **Every spawned object is dynamic by default** - no components to add  
+✅ **Physics methods work immediately** - `.Push()`, `.SetMass()`, `.Collide()`  
+✅ **Static objects require explicit opt-out** - `.MakeStatic()`  
+✅ **UI elements are separate from physics space** - `scene.UI()` vs `scene.Spawn()`
 
 ## Current Status
 
-**⚠️ Early Development**  
-Core systems (graphics + physics) are being prototyped. Expect minimal functionality, no stable API yet.
+⚠️ **Alpha Phase – Bootstrapping**
+
+Currently working systems:
+- Engine core (init, main loop)
+- Window management (GLFW-based)
+
+Next up:
+- Rendering system (OpenGL backend)
+- Physics integration layer for Jolt
+- Declarative entity/scene API
+
+Nothing is stable yet — this is a moving target.
 
 
 ## Why Physics-First?
 
-Unlike traditional engines where physics is optional, **Blacksite** treats every object as physical by default. This enables:
+Because most engines treat physics like some shitty afterthought. Blacksite flips that:
 
-- Rapid prototyping of destruction-heavy mechanics
-- Realistic vehicle and environment simulation
-- Cleaner APIs for building interactive worlds
+- Objects behave like real objects by default.
+- Destruction isn't faked — it's simulated.
+- No extra work to "enable" physics — it's already on.
+- Ideal for making chaotic, dynamic, or vehicular-heavy games.
 
+If you're tired of manually toggling Rigidbody checkboxes or writing boilerplate to add collision logic, this engine is for you.
 
 ## Contributing
 
-The engine is in early development. If you're interested in contributing to a physics-first game engine, feel free to open an issue to discuss ideas or reach out about specific systems you'd like to work on.
++ Want to help shape a true physics-core engine from scratch? Good.
 
-Areas that will need attention:
-- Core architecture design
-- Graphics pipeline optimization
-- Physics system integration
-- Cross-platform compatibility
-- Documentation and examples
++ Pull requests welcome — but bring ideas, not just code.
+
+- Physics abstraction layer (Jolt wrappers, body/component sync)
+- OpenGL rendering pipeline + ECS-friendly material/shader system
+- Scene graph with component system (basic ECS already bootstrapped)
+- Asset loading (mesh, textures, prefabs)
+- Input system (GLFW or platform-agnostic)
+
+Open an issue or pull request if you're serious.
 
 ## License
 
-MIT License  
-Use it. Break it. Build something wild with it.
+MIT
+
+No strings attached. Use it, fork it, break it, rebuild it.

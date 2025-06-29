@@ -67,6 +67,8 @@ target_compile_options(blacksite_test PRIVATE
     $<$<CONFIG:Release>:-O3>
 )
 
+target_compile_definitions(blacksite_test PRIVATE GLM_ENABLE_EXPERIMENTAL)
+
 # Setup summary
 message(STATUS "Blacksite Engine Setup")
 message(STATUS "OpenGL found: ${OPENGL_FOUND}")
