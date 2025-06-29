@@ -1,48 +1,176 @@
-# Blacksite Engine Clang Format Configuration
+# ============================================================================
+# BLACKSITE ENGINE - ROCKSTAR CLANG-FORMAT CONFIGURATION
+# Graphics Programming Perfection - No Compromises, No Mercy
+# ============================================================================
 
 BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++17
+
+# ============================================================================
+# INDENTATION & SPACING - THE FOUNDATION OF GREATNESS
+# ============================================================================
 IndentWidth: 4
 TabWidth: 4
-UseTab: Never
-ColumnLimit: 120
+UseTab: Never                           # Tabs are chaos. Spaces are order.
+ColumnLimit: 120                        # Wide enough for graphics math madness
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+AccessModifierOffset: -2                # Keep access modifiers tight
 
+# ============================================================================
+# BRACE WRAPPING - ALLMAN STYLE SUPREMACY
+# ============================================================================
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true                      # Classes deserve their own line
+  AfterControlStatement: Always         # if/for/while get royal treatment
+  AfterEnum: true                       # Enums are VIPs
+  AfterFunction: true                   # Functions are sacred
+  AfterNamespace: false                 # Namespaces stay compact
+  AfterStruct: true                     # Structs get the full treatment
+  AfterUnion: true                      # Unions too
+  BeforeCatch: true                     # Exception handling clarity
+  BeforeElse: true                      # else gets its moment
+  BeforeWhile: false                    # do-while stays tight
+  IndentBraces: false                   # Braces don't indent themselves
+  SplitEmptyFunction: false             # Empty functions stay minimal
+  SplitEmptyRecord: false               # Empty structs/classes stay tight
+
+# ============================================================================
+# POINTER & REFERENCE ALIGNMENT - LEFT SIDE DOMINANCE
+# ============================================================================
+PointerAlignment: Left                  # float* vertex, not float *vertex
+DerivePointerAlignment: false           # Consistency is king
+ReferenceAlignment: Left                # Matrix& transform, clean and clear
+
+# ============================================================================
+# FUNCTION & CONTROL FLOW FORMATTING
+# ============================================================================
 AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-BreakBeforeBraces: Allman
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
 
-PointerAlignment: Left
-SpaceAfterCStyleCast: true
-SpaceBeforeParens: ControlStatements
+# ============================================================================
+# SPACING - BREATHING ROOM FOR GRAPHICS CODE
+# ============================================================================
+SpaceAfterCStyleCast: true              # (float) x becomes (float) x
+SpaceBeforeParens: ControlStatements    # if (condition) but function()
+SpaceInEmptyParentheses: false          # () not ( )
+SpacesInParentheses: false              # (x + y) not ( x + y )
+SpacesInSquareBrackets: false           # array[index] not array[ index ]
+SpacesInAngles: Never                   # vector<float> not vector< float >
+SpaceBeforeAssignmentOperators: true    # x = y, not x=y
+SpacesBeforeTrailingComments: 2         # Code  // Comment (double space)
 
-NamespaceIndentation: All
-IndentCaseLabels: true
-AlwaysBreakTemplateDeclarations: Yes
+# ============================================================================
+# TEMPLATE & NAMESPACE HANDLING
+# ============================================================================
+AlwaysBreakTemplateDeclarations: Yes    # Template declarations get full lines
+NamespaceIndentation: All               # Indent everything in namespaces
+CompactNamespaces: false                # Give namespaces breathing room
+FixNamespaceComments: true              # Auto-fix namespace end comments
+
+# ============================================================================
+# CASE & SWITCH STATEMENTS
+# ============================================================================
+IndentCaseLabels: true                  # case: gets indented
+IndentGotoLabels: false                 # goto labels stay left-aligned
+
+# ============================================================================
+# INCLUDE ORGANIZATION - GRAPHICS PROGRAMMING HIERARCHY
+# ============================================================================
 SortIncludes: CaseInsensitive
-
 IncludeBlocks: Preserve
 IncludeCategories:
-  - Regex:           '^<.*\.h>'
+  # System headers first (OpenGL, DirectX, Vulkan)
+  - Regex:           '^<(GL|gl|GLES|vulkan|d3d|DirectX|windows).*>'
     Priority:        1
     SortPriority:    1
-  - Regex:           '^"blacksite/.*"'
+  # Standard library headers
+  - Regex:           '^<.*>'
     Priority:        2
     SortPriority:    2
-  - Regex:           '.*'
+  # Third-party graphics libraries (glm, stb, etc.)
+  - Regex:           '^<(glm|stb|imgui|assimp|SDL|GLFW).*>'
     Priority:        3
     SortPriority:    3
+  # Engine headers - the crown jewels
+  - Regex:           '^"blacksite/.*"'
+    Priority:        4
+    SortPriority:    4
+  # Local project headers
+  - Regex:           '^".*"'
+    Priority:        5
+    SortPriority:    5
 
-ReflowComments: true
-CommentPragmas: '^ IWYU pragma:'
-
-Cpp11BracedListStyle: true
-DerivePointerAlignment: false
-SpacesInAngles: Never
-Standard: c++17
-
-# Keeps constructor initializer lists readable
+# ============================================================================
+# CONSTRUCTOR & INITIALIZER LISTS - GRAPHICS OBJECT CLARITY
+# ============================================================================
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: Never      # Each initializer gets its own line
 
-# Function declaration wrapping
+# ============================================================================
+# FUNCTION DECLARATIONS & PARAMETERS
+# ============================================================================
 AlwaysBreakAfterReturnType: None
 AlignAfterOpenBracket: Align
+BinPackParameters: false                # Each parameter on its own line for complex functions
+BinPackArguments: false                 # Function calls get the same treatment
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+
+# ============================================================================
+# BINARY OPERATORS & EXPRESSIONS
+# ============================================================================
+BreakBeforeBinaryOperators: NonAssignment
+AlignOperands: AlignAfterOperator       # Multi-line expressions align beautifully
+
+# ============================================================================
+# COMMENTS & DOCUMENTATION
+# ============================================================================
+ReflowComments: true                    # Auto-wrap long comments
+CommentPragmas: '^ IWYU pragma:'        # Include-what-you-use support
+
+# ============================================================================
+# C++11/17 FEATURES - MODERN GRAPHICS PROGRAMMING
+# ============================================================================
+Cpp11BracedListStyle: true              # {1, 2, 3} not { 1, 2, 3 }
+SpaceBeforeCpp11BracedList: true        # vector<float> {1, 2, 3}
+
+# ============================================================================
+# LINE BREAKING & WRAPPING
+# ============================================================================
+AlwaysBreakBeforeMultilineStrings: true
+BreakBeforeTernaryOperators: true       # condition ? true : false formatting
+BreakStringLiterals: true               # Long strings get broken up
+MaxEmptyLinesToKeep: 2                  # Allow some breathing room
+KeepEmptyLinesAtTheStartOfBlocks: false # Clean block starts
+
+# ============================================================================
+# ALIGNMENT - MAKING CODE BEAUTIFUL
+# ============================================================================
+AlignConsecutiveAssignments: None      # Don't over-align assignments
+AlignConsecutiveDeclarations: None     # Don't over-align declarations
+AlignTrailingComments: false            # Comments flow naturally
+AlignEscapedNewlines: Left              # Macro continuations align left
+
+# ============================================================================
+# PENALTIES - FINE-TUNING THE FORMATTER'S DECISIONS
+# ============================================================================
+PenaltyBreakAssignment: 100
+PenaltyBreakBeforeFirstCallParameter: 50
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 200
+
+# ============================================================================
+# ROCKSTAR GRAPHICS PROGRAMMING READY
+# Matrix math, shader code, vertex buffers - this config handles it all
+# ============================================================================

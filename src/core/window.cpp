@@ -2,10 +2,10 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-namespace Blacksite
-{
+namespace Blacksite {
 
     Window::Window() = default;
+
     Window::~Window()
     {
         Shutdown();
@@ -13,45 +13,42 @@ namespace Blacksite
 
     bool Window::Initialize(int width, int height, const std::string& title)
     {
-
         m_width = width;
         m_height = height;
 
         if (!glfwInit())
         {
             std::cerr << "Failed to initialize GLFW " << std::endl;
-            Shutdown();
+            Shutdown();  // Defensive—should be safe even if glfwInit failed
             return false;
         }
 
-        // --- Request OpenGL 3.3 core ---
+        // --- Request OpenGL 3.3 Core Profile ---
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-        // --- Create actual window ---
+        // --- Create window ---
         m_window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
-
         if (!m_window)
         {
             std::cerr << "Failed to create GLFW window." << std::endl;
-            glfwTerminate();
+            glfwTerminate();  // glfwInit succeeded, must clean it up
             return false;
         }
 
-        glfwMakeContextCurrent(m_window); // [OP] Make this window's context current
+        glfwMakeContextCurrent(m_window);  // Required before glewInit()
 
-        // --- Load OpenGL Functions ---
+        // --- Load OpenGL functions via GLEW ---
         if (glewInit() != GLEW_OK)
         {
-
-            std::cerr << "Failed to initialize glew" << std::endl;
-            return false;
+            std::cerr << "Failed to initialize GLEW" << std::endl;
+            return false;  // No recovery—OpenGL functions won’t be available
         }
 
-        // --- Set rendering area and enable depth ---
-        glViewport(0, 0, width, height);
-        glEnable(GL_DEPTH_TEST);
+        // --- Setup default GL state ---
+        glViewport(0, 0, width, height);  // Viewport = full window
+        glEnable(GL_DEPTH_TEST);  // Enable Z-buffering for 3D rendering
 
         return true;
     }
@@ -63,23 +60,22 @@ namespace Blacksite
             glfwDestroyWindow(m_window);
             m_window = nullptr;
         }
-        glfwTerminate();
+        glfwTerminate();  // Always call this—GLFW doesn't track internal state
     }
 
     bool Window::ShouldClose() const
     {
-
         return glfwWindowShouldClose(m_window);
     }
 
     void Window::SwapBuffers()
     {
-        glfwSwapBuffers(m_window);
+        glfwSwapBuffers(m_window);  // Push back buffer to front
     }
 
     void Window::PollEvents()
     {
-        glfwPollEvents();
+        glfwPollEvents();  // Needed every frame to keep window responsive
     }
 
-} // namespace Blacksite
+}  // namespace Blacksite
