@@ -13,32 +13,33 @@ Engine::~Engine() {
 
 bool Engine::Initialize(int width, int height, const std::string& title) {
     if (m_initialized) {
-        std::cout << "Engine already initialized - ignoring duplicate call" << std::endl;
-        return true;
+        std::cerr << "Engine already initialized!" << std::endl;
+        return false;
     }
 
-    std::cout << "Initializing Blacksite Engine... (buckle up)" << std::endl;
-
-    // Create the window
+    // Initialize window
     m_window = std::make_unique<Window>();
     if (!m_window->Initialize(width, height, title)) {
-        std::cerr << "Failed to initialize window (probably a driver issue)" << std::endl;
+        std::cerr << "Failed to initialize window!" << std::endl;
         return false;
     }
 
-    // Initialize the renderer
+    // Initialize renderer
     m_renderer = std::make_unique<Renderer>();
     if (!m_renderer->Initialize(width, height)) {
-        std::cerr << "Failed to initialize renderer (graphics gods are angry)" << std::endl;
+        std::cerr << "Failed to initialize renderer!" << std::endl;
         return false;
     }
 
-    // Set up a reasonable default camera position
-    m_renderer->GetCamera().SetPosition({0.0f, 2.0f, 10.0f});
-    m_renderer->GetCamera().SetTarget({0.0f, 0.0f, 0.0f});
+    // Initialize physics system
+    m_physicsSystem = std::make_unique<PhysicsSystem>();
+    if (!m_physicsSystem->Initialize()) {
+        std::cerr << "Failed to initialize physics system!" << std::endl;
+        return false;
+    }
 
-    std::cout << "Blacksite Engine initialized successfully (miracles do happen)" << std::endl;
     m_initialized = true;
+    std::cout << "Blacksite Engine initialized successfully! Physics is ready!" << std::endl;
     return true;
 }
 
@@ -53,9 +54,7 @@ int Engine::Run() {
 
     std::cout << "Starting main loop... (here we go again)" << std::endl;
 
-    // The main loop
     while (m_running && !m_window->ShouldClose()) {
-        // Calculate delta time
         auto currentTime = std::chrono::high_resolution_clock::now();
         float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
         lastTime = currentTime;
@@ -72,12 +71,11 @@ int Engine::Run() {
 
 void Engine::Shutdown() {
     if (!m_initialized) {
-        return;  // Nothing to clean up
+        return;
     }
 
     std::cout << "Shutting down Blacksite Engine... (end of an era)" << std::endl;
 
-    // Clean up in reverse order of initialization
     m_entities.clear();
     m_renderer.reset();
     m_window.reset();
@@ -88,17 +86,18 @@ void Engine::Shutdown() {
     std::cout << "Engine shutdown complete (everything is dead now)" << std::endl;
 }
 
+// Physics by default - no more enablePhysics parameter!
 int Engine::SpawnCube(const glm::vec3& position) {
     Entity entity(Entity::CUBE);
     entity.transform.position = position;
 
-    // Add it to our collection of digital pets
-    m_entities.push_back(entity);
+    // Always create physics body
+    entity.physicsBody = m_physicsSystem->CreateBoxBody(position, {1.0f, 1.0f, 1.0f}, false);
+    entity.hasPhysics = true;
 
     int id = m_nextEntityId++;
-    std::cout << "Spawned cube with ID " << id << " at (" << position.x << ", " << position.y << ", " << position.z
-              << ")" << std::endl;
-
+    m_entities.push_back(entity);
+    std::cout << "Spawned cube with ID " << id << " (physics enabled)" << std::endl;
     return id;
 }
 
@@ -106,35 +105,52 @@ int Engine::SpawnSphere(const glm::vec3& position) {
     Entity entity(Entity::SPHERE);
     entity.transform.position = position;
 
-    m_entities.push_back(entity);
+    // Always create physics body
+    entity.physicsBody = m_physicsSystem->CreateSphereBody(position, 0.5f, false);
+    entity.hasPhysics = true;
 
     int id = m_nextEntityId++;
-    std::cout << "Spawned sphere with ID " << id << " (it's round!)" << std::endl;
-
+    m_entities.push_back(entity);
+    std::cout << "Spawned sphere with ID " << id << " (physics enabled)" << std::endl;
     return id;
 }
 
-int Engine::SpawnPlane(const glm::vec3& position) {
+int Engine::SpawnPlane(const glm::vec3& position, const glm::vec3& size) {
     Entity entity(Entity::PLANE);
     entity.transform.position = position;
+    entity.transform.scale = size;
 
-    m_entities.push_back(entity);
+    // Always create physics body
+    entity.physicsBody = m_physicsSystem->CreatePlaneBody(position, size);
+    entity.hasPhysics = true;
 
     int id = m_nextEntityId++;
-    std::cout << "Spawned plane with ID " << id << " (flat as your gameplay)" << std::endl;
-
+    m_entities.push_back(entity);
+    std::cout << "Spawned plane with ID " << id << " (size: " << size.x << "x" << size.y << "x" << size.z
+              << ") (physics enabled)" << std::endl;
     return id;
+}
+
+void Engine::SyncPhysicsToGraphics() {
+    for (auto& entity : m_entities) {
+        if (entity.hasPhysics && entity.active) {
+            entity.transform.position = m_physicsSystem->GetBodyPosition(entity.physicsBody);
+            entity.transform.rotation = m_physicsSystem->GetBodyRotation(entity.physicsBody);
+        }
+    }
 }
 
 Engine::EntityHandle Engine::GetEntity(int id) {
-    // Return a handle even if the entity doesn't exist
-    // The handle will check validity on each operation
     return EntityHandle(this, id);
 }
 
+// Improved method names and always assume physics exists
 Engine::EntityHandle& Engine::EntityHandle::At(const glm::vec3& position) {
     if (auto* entity = m_engine->GetEntityPtr(m_id)) {
         entity->transform.position = position;
+        if (entity->hasPhysics) {
+            m_engine->GetPhysicsSystem()->SetBodyPosition(entity->physicsBody, position);
+        }
     } else {
         std::cerr << "Tried to move non-existent entity " << m_id << std::endl;
     }
@@ -160,16 +176,16 @@ Engine::EntityHandle& Engine::EntityHandle::Scale(const glm::vec3& scale) {
 }
 
 Engine::EntityHandle& Engine::EntityHandle::Scale(float x, float y, float z) {
-    glm::vec3 scale = {x, y, z};
-    return Scale(scale);
+    return Scale({x, y, z});
 }
+
 Engine::EntityHandle& Engine::EntityHandle::Scale(float uniformScale) {
     return Scale({uniformScale, uniformScale, uniformScale});
 }
 
 Engine::EntityHandle& Engine::EntityHandle::Color(float r, float g, float b) {
     if (auto* entity = m_engine->GetEntityPtr(m_id)) {
-        entity->color = {r, g, b};  // Now using the correct glm::vec3 color field
+        entity->color = {r, g, b};
     } else {
         std::cerr << "Tried to color non-existent entity " << m_id << std::endl;
     }
@@ -207,25 +223,91 @@ void Engine::EntityHandle::Destroy() {
 void Engine::SetCameraPosition(const glm::vec3& position) {
     if (m_renderer) {
         m_renderer->GetCamera().SetPosition(position);
-        std::cout << "Camera moved to (" << position.x << ", " << position.y << ", " << position.z
-                  << ") - new perspective unlocked" << std::endl;
+        std::cout << "Camera moved to (" << position.x << ", " << position.y << ", " << position.z << ")" << std::endl;
     }
 }
 
 void Engine::SetCameraTarget(const glm::vec3& target) {
     if (m_renderer) {
         m_renderer->GetCamera().SetTarget(target);
-        std::cout << "Camera now staring at (" << target.x << ", " << target.y << ", " << target.z << ") - how creepy"
-                  << std::endl;
+        std::cout << "Camera now staring at (" << target.x << ", " << target.y << ", " << target.z << ")" << std::endl;
     }
 }
 
+// Better method names for physics operations
+Engine::EntityHandle& Engine::EntityHandle::Push(const glm::vec3& force) {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            m_engine->GetPhysicsSystem()->AddForce(entity->physicsBody, force);
+        } else {
+            std::cerr << "Entity " << m_id << " has no physics body" << std::endl;
+        }
+    }
+    return *this;
+}
+
+Engine::EntityHandle& Engine::EntityHandle::Impulse(const glm::vec3& impulse) {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            m_engine->GetPhysicsSystem()->AddImpulse(entity->physicsBody, impulse);
+        } else {
+            std::cerr << "Entity " << m_id << " has no physics body" << std::endl;
+        }
+    }
+    return *this;
+}
+
+Engine::EntityHandle& Engine::EntityHandle::SetVelocity(const glm::vec3& velocity) {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            m_engine->GetPhysicsSystem()->SetVelocity(entity->physicsBody, velocity);
+        } else {
+            std::cerr << "Entity " << m_id << " has no physics body" << std::endl;
+        }
+    }
+    return *this;
+}
+
+Engine::EntityHandle& Engine::EntityHandle::SetAngularVelocity(const glm::vec3& angularVel) {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            m_engine->GetPhysicsSystem()->SetAngularVelocity(entity->physicsBody, angularVel);
+        } else {
+            std::cerr << "Entity " << m_id << " has no physics body" << std::endl;
+        }
+    }
+    return *this;
+}
+
+Engine::EntityHandle& Engine::EntityHandle::MakeStatic() {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            // Convert to static body in physics system
+            m_engine->GetPhysicsSystem()->MakeBodyStatic(entity->physicsBody);
+            std::cout << "Entity " << m_id << " is now static" << std::endl;
+        }
+    }
+    return *this;
+}
+
+Engine::EntityHandle& Engine::EntityHandle::MakeDynamic() {
+    if (auto* entity = m_engine->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics) {
+            // Convert to dynamic body in physics system
+            m_engine->GetPhysicsSystem()->MakeBodyDynamic(entity->physicsBody);
+            std::cout << "Entity " << m_id << " is now dynamic" << std::endl;
+        }
+    }
+    return *this;
+}
+
 void Engine::Update(float deltaTime) {
+    m_physicsSystem->Update(deltaTime);
+    SyncPhysicsToGraphics();
+
     if (m_updateCallback) {
         m_updateCallback(*this, deltaTime);
     }
-
-    (void)deltaTime;  // Suppress unused parameter warning
 }
 
 void Engine::SetUpdateCallback(UpdateCallback callback) {
@@ -241,14 +323,12 @@ void Engine::Render() {
 
     m_renderer->BeginFrame();
 
-    // Draw all active entities
     int drawnCount = 0;
     for (const auto& entity : m_entities) {
         if (!entity.active) {
-            continue;  // Skip dead entities
+            continue;
         }
 
-        // Draw based on shape type
         switch (entity.shape) {
             case Entity::CUBE:
                 m_renderer->DrawCube(entity.transform, entity.color);
@@ -260,7 +340,7 @@ void Engine::Render() {
                 m_renderer->DrawPlane(entity.transform, entity.color);
                 break;
             default:
-                std::cerr << "Unknown entity shape - what sorcery is this?" << std::endl;
+                std::cerr << "Unknown entity shape" << std::endl;
                 break;
         }
 
@@ -268,28 +348,20 @@ void Engine::Render() {
     }
 
     m_renderer->EndFrame();
-
-    // Uncomment for debugging render performance
-    std::cout << "Rendered " << drawnCount << " entities this frame" << std::endl;
 }
 
 bool Engine::IsValidEntity(int id) const {
-    // Check bounds first
     if (id < 0 || id >= static_cast<int>(m_entities.size())) {
         return false;
     }
-
-    // Check if entity is active
     return m_entities[id].active;
 }
 
 Entity* Engine::GetEntityPtr(int id) {
-    // Only check bounds - let caller decide how to handle inactive entities
     if (id >= 0 && id < static_cast<int>(m_entities.size())) {
         return &m_entities[id];
     }
-
-    return nullptr;  // Entity doesn't exist
+    return nullptr;
 }
 
 }  // namespace Blacksite

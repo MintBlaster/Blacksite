@@ -59,4 +59,4 @@ target_compile_options(BlacksiteEngine PRIVATE
 add_executable(blacksite_test src/main.cpp)
 target_link_libraries(blacksite_test BlacksiteEngine)
 
-message(STATUS "Blacksite Engine configured with examples")
+message(STATUS "Blacksite Engine configured")
