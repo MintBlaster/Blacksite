@@ -59,6 +59,7 @@ target_link_libraries(blacksite_test
     JoltPhysics
     assimp::assimp
 )
+target_compile_definitions(blacksite_test PRIVATE GLEW_STATIC)
 
 # Compiler flags
 target_compile_options(blacksite_test PRIVATE
