@@ -1,34 +1,35 @@
-
 #pragma once
 
-#include <GLFW/glfw3.h>
-#include <unordered_map>
+#include "blacksite/graphics/Camera.h"
 
 namespace Blacksite {
 
-class InputSystem {
+class CameraSystem {
 public:
-    InputSystem();
-    ~InputSystem();
+    CameraSystem();
+    ~CameraSystem();
 
-    void Initialize(GLFWwindow* window);
-    void Update();
+    void Initialize(float aspectRatio);
+    void Update(float deltaTime);
 
-    // Key state queries
-    bool IsKeyPressed(int key) const;
-    bool IsKeyJustPressed(int key) const;
-    bool IsKeyJustReleased(int key) const;
+    // Camera controls (delegates to internal camera)
+    void SetPosition(const glm::vec3& position);
+    void SetTarget(const glm::vec3& target);
+    void SetAspectRatio(float aspect);
 
-    // Special keys with state tracking
-    bool IsF1JustPressed() const;
-    bool IsEscapePressed() const;
+    // Getters
+    glm::vec3 GetPosition() const;
+    glm::vec3 GetTarget() const;
+    glm::mat4 GetViewMatrix() const;
+    glm::mat4 GetProjectionMatrix() const;
+
+    // Direct camera access for renderer
+    Camera& GetCamera() { return m_camera; }
+    const Camera& GetCamera() const { return m_camera; }
 
 private:
-    GLFWwindow* m_window = nullptr;
-    std::unordered_map<int, bool> m_keyStates;
-    std::unordered_map<int, bool> m_previousKeyStates;
-
-    void UpdateKeyState(int key);
+    Camera m_camera;
+    // Future: Add camera movement, animations, etc.
 };
 
-} // namespace BlacksiteE
+} // namespace Blacksite

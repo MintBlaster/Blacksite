@@ -25,20 +25,33 @@ class Renderer {
     void DrawSphere(const Transform& transform, const glm::vec3& color = glm::vec3(1.0f));
     void DrawPlane(const Transform& transform, const glm::vec3& color = glm::vec3(1.0f));
 
+    void DrawCube(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
+    void DrawSphere(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
+    void DrawPlane(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
+
     // Advanced rendering
     void Submit(const RenderCommand& command);  // Queue up a draw command
     void Flush();                               // Execute all queued commands
 
     // Camera control
-    Camera& GetCamera() { return m_camera; }
+    void SetCamera(Camera* camera);
+    Camera& GetCamera() { return *m_camera; }
+    const Camera& GetCamera() const { return *m_camera; }
 
     // Window management
     void OnWindowResize(int width, int height);
 
+    // Debug methods
+    void DebugOpenGLState();
+    void DebugShaderCompilation();
+    void DebugGeometry();
+    void DebugMatrices();
+
   private:
     ShaderManager m_shaderManager;      // Manages our compiled shaders
     GeometryManager m_geometryManager;  // Keeps track of our meshes
-    Camera m_camera;                    // Our eye into the world
+    Camera* m_camera = nullptr;         // External camera (not owned)
+    Camera m_internalCamera;            // Fallback internal camera
 
     // Command queue for batched rendering
     std::vector<RenderCommand> m_renderQueue;

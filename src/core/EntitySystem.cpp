@@ -1,0 +1,209 @@
+#include "blacksite/core/EntitySystem.h"
+#include "blacksite/core/Logger.h"
+#include "blacksite/physics/PhysicsSystem.h"
+
+namespace Blacksite {
+
+EntitySystem::EntitySystem() = default;
+
+EntitySystem::~EntitySystem() = default;
+
+// Default shader versions (backward compatible) - these now call the shader versions
+int EntitySystem::SpawnCube(const glm::vec3& position) {
+    return SpawnCube(position, "basic");
+}
+
+int EntitySystem::SpawnSphere(const glm::vec3& position) {
+    return SpawnSphere(position, "basic");
+}
+
+int EntitySystem::SpawnPlane(const glm::vec3& position, const glm::vec3& size) {
+    return SpawnPlane(position, size, "basic");
+}
+
+// Shader-specific versions - NEW METHODS
+int EntitySystem::SpawnCube(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
+    if (!m_physicsSystem) {
+        BS_ERROR(LogCategory::CORE, "EntitySystem: No physics system available!");
+        return -1;
+    }
+
+    Entity entity(Entity::CUBE, shader);
+    entity.transform.position = position;
+    entity.color = color;
+
+    // Always create physics body (physics-first!)
+    entity.physicsBody = m_physicsSystem->CreateBoxBody(position, {1.0f, 1.0f, 1.0f}, false);
+    entity.hasPhysics = true;
+
+    int id = m_nextEntityId++;
+    m_entities.push_back(entity);
+    m_entityNames.push_back("Cube_" + std::to_string(id));
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned cube entity (ID: %d, shader: %s, dynamic: true)",
+              id, shader.c_str());
+    return id;
+}
+
+int EntitySystem::SpawnSphere(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
+    if (!m_physicsSystem) {
+        BS_ERROR(LogCategory::CORE, "EntitySystem: No physics system available!");
+        return -1;
+    }
+
+    Entity entity(Entity::SPHERE, shader);
+    entity.transform.position = position;
+    entity.color = color;
+
+    // Always create physics body (physics-first!)
+    entity.physicsBody = m_physicsSystem->CreateSphereBody(position, 0.5f, false);
+    entity.hasPhysics = true;
+
+    int id = m_nextEntityId++;
+    m_entities.push_back(entity);
+    m_entityNames.push_back("Sphere_" + std::to_string(id));
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned sphere entity (ID: %d, shader: %s, dynamic: true)",
+              id, shader.c_str());
+    return id;
+}
+
+int EntitySystem::SpawnPlane(const glm::vec3& position, const glm::vec3& size, const std::string& shader, const glm::vec3& color) {
+    if (!m_physicsSystem) {
+        BS_ERROR(LogCategory::CORE, "EntitySystem: No physics system available!");
+        return -1;
+    }
+
+    Entity entity(Entity::PLANE, shader);
+    entity.transform.position = position;
+    entity.transform.scale = size;
+    entity.color = color;
+
+    // Always create physics body (physics-first!)
+    entity.physicsBody = m_physicsSystem->CreatePlaneBody(position, size);
+    entity.hasPhysics = true;
+
+    int id = m_nextEntityId++;
+    m_entities.push_back(entity);
+    m_entityNames.push_back("Plane_" + std::to_string(id));
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned plane entity (ID: %d, shader: %s, size: %.1fx%.1fx%.1f, dynamic: true)",
+              id, shader.c_str(), size.x, size.y, size.z);
+    return id;
+}
+
+// Generic spawn method - NEW METHOD
+int EntitySystem::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
+    switch (shape) {
+        case Entity::CUBE:
+            return SpawnCube(position, shader, color);
+        case Entity::SPHERE:
+            return SpawnSphere(position, shader, color);
+        case Entity::PLANE:
+            return SpawnPlane(position, glm::vec3(1.0f), shader, color);
+        default:
+            BS_ERROR(LogCategory::CORE, "Unknown entity shape in SpawnEntity");
+            return -1;
+    }
+}
+
+void EntitySystem::RemoveEntity(int id) {
+    if (IsValidEntity(id)) {
+        m_entities[id].active = false;
+        BS_INFO_F(LogCategory::CORE, "EntitySystem: Entity removed (ID: %d)", id);
+    } else {
+        BS_WARN_F(LogCategory::CORE, "EntitySystem: Tried to remove invalid entity (ID: %d)", id);
+    }
+}
+
+void EntitySystem::DuplicateEntity(int id) {
+    if (!IsValidEntity(id)) {
+        BS_WARN_F(LogCategory::CORE, "EntitySystem: Tried to duplicate invalid entity (ID: %d)", id);
+        return;
+    }
+
+    const Entity& original = m_entities[id];
+    glm::vec3 newPos = original.transform.position + glm::vec3(1.0f, 0.0f, 0.0f);
+
+    int newId = -1;
+    switch (original.shape) {
+        case Entity::CUBE:
+            newId = SpawnCube(newPos, original.shader, original.color);
+            break;
+        case Entity::SPHERE:
+            newId = SpawnSphere(newPos, original.shader, original.color);
+            break;
+        case Entity::PLANE:
+            newId = SpawnPlane(newPos, original.transform.scale, original.shader, original.color);
+            break;
+    }
+
+    if (newId >= 0) {
+        BS_INFO_F(LogCategory::CORE, "EntitySystem: Entity duplicated (original: %d, copy: %d, shader: %s)",
+                  id, newId, original.shader.c_str());
+    }
+}
+
+// Shader and color management methods - NEW METHODS
+void EntitySystem::SetEntityShader(int id, const std::string& shader) {
+    if (IsValidEntity(id)) {
+        m_entities[id].shader = shader;
+        BS_DEBUG_F(LogCategory::CORE, "EntitySystem: Entity %d shader changed to '%s'", id, shader.c_str());
+    } else {
+        BS_WARN_F(LogCategory::CORE, "EntitySystem: Tried to set shader on invalid entity (ID: %d)", id);
+    }
+}
+
+void EntitySystem::SetEntityColor(int id, const glm::vec3& color) {
+    if (IsValidEntity(id)) {
+        m_entities[id].color = color;
+        BS_DEBUG_F(LogCategory::CORE, "EntitySystem: Entity %d color changed to (%.2f, %.2f, %.2f)",
+                  id, color.r, color.g, color.b);
+    } else {
+        BS_WARN_F(LogCategory::CORE, "EntitySystem: Tried to set color on invalid entity (ID: %d)", id);
+    }
+}
+
+std::string EntitySystem::GetEntityShader(int id) const {
+    if (IsValidEntity(id)) {
+        return m_entities[id].shader;
+    }
+    return "basic";
+}
+
+glm::vec3 EntitySystem::GetEntityColor(int id) const {
+    if (IsValidEntity(id)) {
+        return m_entities[id].color;
+    }
+    return glm::vec3(1.0f);
+}
+
+void EntitySystem::SetEntityName(int id, const std::string& name) {
+    if (id >= 0 && id < static_cast<int>(m_entityNames.size())) {
+        m_entityNames[id] = name;
+        BS_DEBUG_F(LogCategory::CORE, "EntitySystem: Entity %d renamed to '%s'", id, name.c_str());
+    }
+}
+
+std::string EntitySystem::GetEntityName(int id) const {
+    if (id >= 0 && id < static_cast<int>(m_entityNames.size())) {
+        return m_entityNames[id];
+    }
+    return "Unknown";
+}
+
+Entity* EntitySystem::GetEntityPtr(int id) {
+    if (id >= 0 && id < static_cast<int>(m_entities.size())) {
+        return &m_entities[id];
+    }
+    return nullptr;
+}
+
+bool EntitySystem::IsValidEntity(int id) const {
+    if (id < 0 || id >= static_cast<int>(m_entities.size())) {
+        return false;
+    }
+    return m_entities[id].active;
+}
+
+}  // namespace Blacksite

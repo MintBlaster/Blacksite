@@ -21,7 +21,7 @@ static void TraceImpl(const char* inFMT, ...) {
 
 #ifdef JPH_ENABLE_ASSERTS
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, JPH::uint inLine) {
-    BS_ERROR_F(Blacksite::LogCategory::PHYSICS, "[Jolt Assert] %s:%d: (%s) %s", 
+    BS_ERROR_F(Blacksite::LogCategory::PHYSICS, "[Jolt Assert] %s:%d: (%s) %s",
                inFile, inLine, inExpression, (inMessage != nullptr ? inMessage : ""));
     return true;
 }
@@ -335,6 +335,99 @@ bool PhysicsSystem::IsBodyStatic(JPH::BodyID bodyID) {
         return false;
 
     return m_physicsSystem->GetBodyInterface().GetMotionType(bodyID) == JPH::EMotionType::Static;
+}
+
+glm::vec3 PhysicsSystem::GetVelocity(JPH::BodyID bodyID) {
+    if (!m_initialized || !m_physicsSystem) {
+        return glm::vec3(0.0f);
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    JPH::Vec3 velocity = bodyInterface.GetLinearVelocity(bodyID);
+    return ToGLMPos(velocity);
+}
+
+glm::vec3 PhysicsSystem::GetAngularVelocity(JPH::BodyID bodyID) {
+    if (!m_initialized || !m_physicsSystem) {
+        return glm::vec3(0.0f);
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    JPH::Vec3 angularVel = bodyInterface.GetAngularVelocity(bodyID);
+    return ToGLMPos(angularVel);
+}
+
+glm::vec3 PhysicsSystem::GetVelocity(int entityId) {
+    JPH::BodyID bodyID = GetBodyIDFromEntityID(entityId);
+    if (bodyID.IsInvalid()) {
+        return glm::vec3(0.0f);
+    }
+    return GetVelocity(bodyID);
+}
+
+glm::vec3 PhysicsSystem::GetAngularVelocity(int entityId) {
+    JPH::BodyID bodyID = GetBodyIDFromEntityID(entityId);
+    if (bodyID.IsInvalid()) {
+        return glm::vec3(0.0f);
+    }
+    return GetAngularVelocity(bodyID);
+}
+
+bool PhysicsSystem::IsBodyActive(JPH::BodyID bodyID) {
+    if (!m_initialized || !m_physicsSystem) {
+        return false;
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    return bodyInterface.IsActive(bodyID);
+}
+
+float PhysicsSystem::GetBodyMass(JPH::BodyID bodyID) {
+    if (!m_initialized || !m_physicsSystem) {
+        return 0.0f;
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    JPH::BodyLockRead lock(m_physicsSystem->GetBodyLockInterface(), bodyID);
+    if (lock.Succeeded()) {
+        const JPH::Body& body = lock.GetBody();
+        return 1.0f / body.GetMotionProperties()->GetInverseMass();
+    }
+    return 0.0f;
+}
+
+glm::vec3 PhysicsSystem::GetBodyCenterOfMass(JPH::BodyID bodyID) {
+    if (!m_initialized || !m_physicsSystem) {
+        return glm::vec3(0.0f);
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    JPH::Vec3 centerOfMass = bodyInterface.GetCenterOfMassPosition(bodyID);
+    return ToGLMPos(centerOfMass);
+}
+
+JPH::BodyID PhysicsSystem::GetBodyIDFromEntityID(int entityId) {
+    auto it = m_entityToBodyMap.find(entityId);
+    if (it != m_entityToBodyMap.end()) {
+        return it->second;
+    }
+    return JPH::BodyID(); // Invalid body ID
+}
+
+void PhysicsSystem::MapEntityToBody(int entityId, JPH::BodyID bodyID) {
+    m_entityToBodyMap[entityId] = bodyID;
+}
+
+void PhysicsSystem::UnmapEntity(int entityId) {
+    auto it = m_entityToBodyMap.find(entityId);
+    if (it != m_entityToBodyMap.end()) {
+        // Optionally remove the body from physics system here
+        JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+        bodyInterface.RemoveBody(it->second);
+        bodyInterface.DestroyBody(it->second);
+
+        m_entityToBodyMap.erase(it);
+    }
 }
 
 }  // namespace Blacksite

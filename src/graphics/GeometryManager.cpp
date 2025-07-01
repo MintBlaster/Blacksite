@@ -8,12 +8,12 @@ namespace Blacksite {
 GeometryManager::GeometryManager() = default;
 
 GeometryManager::~GeometryManager() {
-    Cleanup();  // Don't leak GPU memory like a rookie
+    Cleanup();  // Don't leak GPU memory
 }
 
 void GeometryManager::CreateCube(const std::string& name) {
     std::vector<float> vertices = {
-        // Front face (z = 0.5) - the face that says "hello world"
+        // Front face (z = 0.5) - the face that says
         -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
         0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f, -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
 
@@ -57,7 +57,7 @@ void GeometryManager::CreateSphere(const std::string& name, float radius, int se
     m_meshes[name].useIndices = true;
     m_meshes[name].indexCount = indices.size();
 
-    BS_DEBUG_F(LogCategory::RENDERER, "Sphere geometry '%s' created with %zu vertices, %zu indices", 
+    BS_DEBUG_F(LogCategory::RENDERER, "Sphere geometry '%s' created with %zu vertices, %zu indices",
                name.c_str(), vertices.size() / 6, indices.size());
 }
 

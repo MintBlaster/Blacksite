@@ -53,10 +53,26 @@ class PhysicsSystem {
     void SetVelocity(JPH::BodyID bodyID, const glm::vec3& velocity);
     void SetAngularVelocity(JPH::BodyID bodyID, const glm::vec3& angularVel);
 
-    // Static/Dynamic conversion - NEW!
+    // Static/Dynamic conversion
     void MakeBodyStatic(JPH::BodyID bodyID);
     void MakeBodyDynamic(JPH::BodyID bodyID);
     bool IsBodyStatic(JPH::BodyID bodyID);
+
+    // Getters for EntityHandle
+    glm::vec3 GetVelocity(JPH::BodyID bodyID);
+    glm::vec3 GetAngularVelocity(JPH::BodyID bodyID);
+    glm::vec3 GetVelocity(int entityId);         // Overload for entity ID
+    glm::vec3 GetAngularVelocity(int entityId);  // Overload for entity ID
+
+    // Body state queries
+    bool IsBodyActive(JPH::BodyID bodyID);
+    float GetBodyMass(JPH::BodyID bodyID);
+    glm::vec3 GetBodyCenterOfMass(JPH::BodyID bodyID);
+
+    // Body mapping (you'll need to implement the mapping between entity IDs and body IDs)
+    JPH::BodyID GetBodyIDFromEntityID(int entityId);
+    void MapEntityToBody(int entityId, JPH::BodyID bodyID);
+    void UnmapEntity(int entityId);
 
     // Get the Jolt physics system for advanced usage
     JPH::PhysicsSystem* GetJoltSystem() { return m_physicsSystem.get(); }
@@ -66,6 +82,9 @@ class PhysicsSystem {
     std::unique_ptr<JPH::TempAllocatorImpl> m_tempAllocator;
     std::unique_ptr<JPH::JobSystemThreadPool> m_jobSystem;
     std::unique_ptr<JPH::PhysicsSystem> m_physicsSystem;
+
+    // Entity ID to Body ID mapping
+    std::unordered_map<int, JPH::BodyID> m_entityToBodyMap;
 
     // Layers and filters (we'll keep it simple for now)
     static constexpr JPH::ObjectLayer NON_MOVING = 0;
