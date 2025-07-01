@@ -24,6 +24,7 @@ DEBUG=false
 RELEASE=false
 VERBOSE=false
 JOBS=$(nproc)
+TARGET="test"  # New: default target
 
 # Function to print colored output
 print_info() {
@@ -51,21 +52,25 @@ Usage: $0 [OPTIONS]
 
 OPTIONS:
     -c, --clean         Clean build directory before building
-    -r, --run           Run the engine after building
+    -r, --run           Run the built target after building
     -d, --debug         Build in debug mode (default)
     -R, --release       Build in release mode
     -v, --verbose       Verbose output
     -j, --jobs N        Number of parallel jobs (default: $JOBS)
+    -t, --target T      Build target: test, editor, all (default: test)
     -h, --help          Show this help message
 
 EXAMPLES:
-    $0                  # Basic build
-    $0 -c -r            # Clean build and run
-    $0 -R -r            # Release build and run
+    $0                  # Basic build (test executable)
+    $0 -c -r            # Clean build and run test
+    $0 -t editor -r     # Build and run editor
+    $0 -t all -R        # Build everything in release mode
     $0 -c -d -v -j8     # Clean debug build with verbose output using 8 jobs
 
 BUILD TARGETS:
-    The script builds the main 'blacksite_test' executable by default.
+    test     - Build BlacksiteEngine executable (examples/basic_demo)
+    editor   - Build BlacksiteEditor executable
+    all      - Build both test and editor
 EOF
 }
 
@@ -98,6 +103,10 @@ while [[ $# -gt 0 ]]; do
             JOBS="$2"
             shift 2
             ;;
+        -t|--target)
+            TARGET="$2"
+            shift 2
+            ;;
         -h|--help)
             show_usage
             exit 0
@@ -110,6 +119,17 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate target
+case $TARGET in
+    test|editor|all)
+        ;;
+    *)
+        print_error "Invalid target: $TARGET"
+        print_info "Valid targets: test, editor, all"
+        exit 1
+        ;;
+esac
+
 # Determine build type
 if [[ "$RELEASE" == true ]]; then
     BUILD_TYPE="Release"
@@ -120,6 +140,7 @@ fi
 print_info "Blacksite Engine Build Script"
 print_info "Project: $PROJECT_ROOT"
 print_info "Build Type: $BUILD_TYPE"
+print_info "Target: $TARGET"
 print_info "Jobs: $JOBS"
 
 # Clean build directory if requested
@@ -159,13 +180,26 @@ print_success "CMake configuration completed"
 # Build the project
 print_info "Building Blacksite Engine..."
 
+# Determine what to build
+case $TARGET in
+    test)
+        BUILD_TARGETS="BlacksiteEngine"
+        ;;
+    editor)
+        BUILD_TARGETS="BlacksiteEditor"
+        ;;
+    all)
+        BUILD_TARGETS=""  # Build all targets
+        ;;
+esac
+
 if [[ "$VERBOSE" == true ]]; then
-    make -j"$JOBS" VERBOSE=1 || {
+    make -j"$JOBS" $BUILD_TARGETS VERBOSE=1 || {
         print_error "Build failed!"
         exit 1
     }
 else
-    make -j"$JOBS" || {
+    make -j"$JOBS" $BUILD_TARGETS || {
         print_error "Build failed!"
         exit 1
     }
@@ -175,33 +209,62 @@ print_success "Build completed successfully!"
 
 # Show build artifacts
 print_info "Build artifacts:"
-if [[ -f "$BUILD_DIR/blacksite_test" ]]; then
-    ls -lh "$BUILD_DIR/blacksite_test"
-else
-    print_warning "Main executable not found!"
+if [[ "$TARGET" == "test" || "$TARGET" == "all" ]]; then
+    if [[ -f "$BUILD_DIR/examples/BlacksiteEngine" ]]; then
+        ls -lh "$BUILD_DIR/examples/BlacksiteEngine"
+    else
+        print_warning "Test executable not found!"
+    fi
 fi
 
-# Run the engine if requested
-if [[ "$RUN" == true ]]; then
-    print_info "Running Blacksite Engine..."
-
-    if [[ -f "$BUILD_DIR/blacksite_test" ]]; then
-        echo ""
-        print_info "=== ENGINE OUTPUT ==="
-        echo ""
-
-        # Run the engine
-        "$BUILD_DIR/blacksite_test" || {
-            print_error "Engine execution failed!"
-            exit 1
-        }
-
-        echo ""
-        print_success "Engine execution completed"
+if [[ "$TARGET" == "editor" || "$TARGET" == "all" ]]; then
+    if [[ -f "$BUILD_DIR/editor/BlacksiteEditor" ]]; then
+        ls -lh "$BUILD_DIR/editor/BlacksiteEditor"
     else
-        print_error "Executable not found: $BUILD_DIR/blacksite_test"
-        exit 1
+        print_warning "Editor executable not found!"
     fi
+fi
+
+# Run the target if requested
+if [[ "$RUN" == true ]]; then
+    print_info "Running $TARGET..."
+
+    case $TARGET in
+        test)
+            if [[ -f "$BUILD_DIR/examples/BlacksiteEngine" ]]; then
+                echo ""
+                print_info "=== ENGINE TEST OUTPUT ==="
+                echo ""
+                "$BUILD_DIR/examples/BlacksiteEngine" || {
+                    print_error "Test execution failed!"
+                    exit 1
+                }
+            else
+                print_error "Test executable not found!"
+                exit 1
+            fi
+            ;;
+        editor)
+            if [[ -f "$BUILD_DIR/editor/BlacksiteEditor" ]]; then
+                echo ""
+                print_info "=== EDITOR OUTPUT ==="
+                echo ""
+                "$BUILD_DIR/editor/BlacksiteEditor" || {
+                    print_error "Editor execution failed!"
+                    exit 1
+                }
+            else
+                print_error "Editor executable not found!"
+                exit 1
+            fi
+            ;;
+        all)
+            print_warning "Cannot run 'all' target - specify test or editor"
+            ;;
+    esac
+
+    echo ""
+    print_success "Execution completed"
 fi
 
 print_success "Script completed successfully!"

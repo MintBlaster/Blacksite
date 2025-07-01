@@ -118,6 +118,51 @@ void Engine::Update(float deltaTime) {
     }
 }
 
+void Engine::UpdateSystems(float deltaTime) {
+    // Move logic from your private Update() method
+    m_cameraSystem->Update(deltaTime);
+    m_physicsSystem->Update(deltaTime);
+    SyncPhysicsToGraphics();
+
+    // Call user update callback if set
+    if (m_updateCallback) {
+        m_updateCallback(*this, deltaTime);
+    }
+}
+
+void Engine::RenderScene() {
+    if (!m_renderer) {
+        BS_ERROR(LogCategory::RENDERER, "No renderer available!");
+        return;
+    }
+
+    m_renderer->BeginFrame();
+
+    int drawnCount = 0;
+    for (const auto& entity : m_entitySystem->GetEntities()) {
+        if (!entity.active)
+            continue;
+
+        switch (entity.shape) {
+            case Entity::CUBE:
+                m_renderer->DrawCube(entity.transform, entity.shader, entity.color);
+                break;
+            case Entity::SPHERE:
+                m_renderer->DrawSphere(entity.transform, entity.shader, entity.color);
+                break;
+            case Entity::PLANE:
+                m_renderer->DrawPlane(entity.transform, entity.shader, entity.color);
+                break;
+            default:
+                BS_ERROR(LogCategory::RENDERER, "Unknown entity shape");
+                break;
+        }
+        drawnCount++;
+    }
+
+    m_renderer->EndFrame();
+}
+
 void Engine::SyncPhysicsToGraphics() {
     // Sync physics positions back to transform positions
     for (auto& entity : m_entitySystem->GetEntities()) {

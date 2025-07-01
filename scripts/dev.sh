@@ -48,9 +48,11 @@ Blacksite Engine Development Utility
 Usage: $0 [COMMAND] [OPTIONS]
 
 COMMANDS:
-    quick           Quick build and run (clean + debug + run)
-    fast            Fast build and run (no clean, debug + run)
-    release         Release build and run
+    quick           Quick build and run test (clean + debug + run)
+    fast            Fast build and run test (no clean, debug + run)
+    editor          Build and run editor
+    editor-fast     Fast build and run editor (no clean)
+    release         Release build and run test
     clean           Clean all build artifacts
     test            Run tests (if any)
     format          Format code using clang-format
@@ -66,30 +68,44 @@ OPTIONS:
     -h, --help      Show this help
 
 EXAMPLES:
-    $0 quick        # Clean build and run
-    $0 fast         # Quick build and run
-    $0 release      # Release build and run
+    $0 quick        # Clean build and run test
+    $0 fast         # Quick build and run test
+    $0 editor       # Build and run editor
+    $0 editor-fast  # Quick build and run editor
+    $0 release      # Release build and run test
     $0 clean        # Clean everything
     $0 info         # Show project info
 EOF
 }
 
-# Quick build and run (most common)
+# Quick build and run test (most common)
 cmd_quick() {
-    print_header "Quick Development Build"
-    "$SCRIPT_DIR/build.sh" --clean --debug --run --verbose
+    print_header "Quick Development Build (Test)"
+    "$SCRIPT_DIR/build.sh" --clean --debug --target test --run --verbose
 }
 
-# Fast build and run (no clean)
+# Fast build and run test (no clean)
 cmd_fast() {
-    print_header "Fast Development Build"
-    "$SCRIPT_DIR/build.sh" --debug --run
+    print_header "Fast Development Build (Test)"
+    "$SCRIPT_DIR/build.sh" --debug --target test --run
+}
+
+# Build and run editor
+cmd_editor() {
+    print_header "Editor Build"
+    "$SCRIPT_DIR/build.sh" --clean --debug --target editor --run --verbose
+}
+
+# Fast build and run editor
+cmd_editor_fast() {
+    print_header "Fast Editor Build"
+    "$SCRIPT_DIR/build.sh" --debug --target editor --run
 }
 
 # Release build and run
 cmd_release() {
     print_header "Release Build"
-    "$SCRIPT_DIR/build.sh" --clean --release --run
+    "$SCRIPT_DIR/build.sh" --clean --release --target test --run
 }
 
 # Clean everything
@@ -133,7 +149,8 @@ cmd_format() {
     fi
 
     print_info "Formatting C++ files..."
-    find "$PROJECT_ROOT/src" "$PROJECT_ROOT/include" -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+    # Updated paths for new structure
+    find "$PROJECT_ROOT/blacksite" "$PROJECT_ROOT/editor" "$PROJECT_ROOT/examples" -name "*.cpp" -o -name "*.h" | xargs clang-format -i
     print_success "Code formatting completed"
 }
 
@@ -151,6 +168,13 @@ cmd_info() {
     fi
 
     echo ""
+    echo -e "${CYAN}Project Structure:${NC}"
+    echo "  blacksite/blacksite/  - Engine library source"
+    echo "  editor/               - Editor application"
+    echo "  examples/             - Demo applications"
+    echo "  third_party/          - External dependencies"
+
+    echo ""
     echo -e "${CYAN}Git Status:${NC}"
     if git -C "$PROJECT_ROOT" status --porcelain | head -5; then
         echo "  (showing first 5 changes)"
@@ -164,10 +188,16 @@ cmd_info() {
 
     echo ""
     echo -e "${CYAN}Build Status:${NC}"
-    if [[ -f "$BUILD_DIR/blacksite_test" ]]; then
-        ls -lh "$BUILD_DIR/blacksite_test"
+    if [[ -f "$BUILD_DIR/examples/blacksite_test" ]]; then
+        echo "  Test: $(ls -lh "$BUILD_DIR/examples/blacksite_test" | awk '{print $5, $9}')"
     else
-        echo "  Not built"
+        echo "  Test: Not built"
+    fi
+
+    if [[ -f "$BUILD_DIR/editor/BlacksiteEditor" ]]; then
+        echo "  Editor: $(ls -lh "$BUILD_DIR/editor/BlacksiteEditor" | awk '{print $5, $9}')"
+    else
+        echo "  Editor: Not built"
     fi
 
     echo ""
@@ -232,49 +262,7 @@ cmd_commit() {
 # Setup development environment
 cmd_setup() {
     print_header "Development Environment Setup"
-
-    print_info "Checking required dependencies..."
-
-    # Check for required tools
-    MISSING_DEPS=()
-
-    if ! command -v cmake &> /dev/null; then
-        MISSING_DEPS+=("cmake")
-    fi
-
-    if ! command -v make &> /dev/null; then
-        MISSING_DEPS+=("build-essential")
-    fi
-
-    if ! command -v git &> /dev/null; then
-        MISSING_DEPS+=("git")
-    fi
-
-    if ! pkg-config --exists glfw3; then
-        MISSING_DEPS+=("libglfw3-dev")
-    fi
-
-    if ! pkg-config --exists glew; then
-        MISSING_DEPS+=("libglew-dev")
-    fi
-
-    if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
-        print_warning "Missing dependencies: ${MISSING_DEPS[*]}"
-        echo "Install with:"
-        echo "  sudo apt update"
-        echo "  sudo apt install ${MISSING_DEPS[*]}"
-    else
-        print_success "All dependencies are available"
-    fi
-
-    # Setup git submodules
-    print_info "Initializing git submodules..."
-    git -C "$PROJECT_ROOT" submodule update --init --recursive
-
-    # Create build directory
-    mkdir -p "$BUILD_DIR"
-
-    print_success "Development environment setup complete"
+    "$SCRIPT_DIR/setup.sh"
 }
 
 # Check dependencies
@@ -333,6 +321,12 @@ case "${1:-}" in
         ;;
     fast)
         cmd_fast
+        ;;
+    editor)
+        cmd_editor
+        ;;
+    editor-fast)
+        cmd_editor_fast
         ;;
     release)
         cmd_release

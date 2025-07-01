@@ -57,6 +57,13 @@ class Engine {
     InputSystem* GetInputSystem() { return m_inputSystem.get(); }
     PhysicsSystem* GetPhysicsSystem() { return m_physicsSystem.get(); }
     Renderer* GetRenderer() { return m_renderer.get(); }
+    GLFWwindow* GetGLFWWindow() const { return m_window->GetGLFWindow(); }
+
+    using RenderCallback = std::function<void(Engine&)>;
+    void SetRenderCallback(RenderCallback callback) { m_renderCallback = callback; }
+
+    void UpdateSystems(float deltaTime);
+    void RenderScene();
 
   private:
     // --- Core Systems ---
@@ -70,6 +77,7 @@ class Engine {
     UpdateCallback m_updateCallback;
     bool m_running = false;
     bool m_initialized = false;
+    RenderCallback m_renderCallback;
 
     // --- Internal Methods ---
     void Update(float deltaTime);

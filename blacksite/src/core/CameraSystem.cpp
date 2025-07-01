@@ -18,6 +18,7 @@ void CameraSystem::Initialize(float aspectRatio) {
 }
 
 void CameraSystem::Update(float deltaTime) {
+    (void)deltaTime;
 }
 
 void CameraSystem::SetPosition(const glm::vec3& position) {
