@@ -4,6 +4,9 @@
 #include "blacksite/graphics/Renderer.h"
 #include "blacksite/math/Transform.h"
 #include "blacksite/physics/PhysicsSystem.h"
+#include "blacksite/ui/UI.h"
+
+
 
 #include <functional>
 #include <glm/glm.hpp>
@@ -48,6 +51,21 @@ class Engine {
     using UpdateCallback = std::function<void(Engine& engine, float deltaTime)>;
     void SetUpdateCallback(UpdateCallback callback);
 
+    // --- Getters ---
+    const std::vector<Entity>& GetEntities() const { return m_entities; }
+    std::vector<Entity>& GetEntities() { return m_entities; }  // Non-const version for editor
+
+    // --- Editor Interface ---
+    Entity* GetEntityPtr(int id);      // Made public for editor access
+    bool IsValidEntity(int id) const;  // Made public for editor access
+    int GetNextEntityId() const { return m_nextEntityId; }
+
+    // Editor-specific entity operations
+    void RemoveEntity(int id);
+    void DuplicateEntity(int id);
+    void SetEntityName(int id, const std::string& name);
+    std::string GetEntityName(int id) const;
+
     class EntityHandle {
       public:
         EntityHandle(Engine* engine, int id) : m_engine(engine), m_id(id) {}
@@ -86,19 +104,27 @@ class Engine {
     // --- Camera Controls ---
     void SetCameraPosition(const glm::vec3& position);
     void SetCameraTarget(const glm::vec3& target);
+    glm::vec3 GetCameraPosition() const;
+    glm::vec3 GetCameraTarget() const;
 
     // --- Direct Physics Access ---
     PhysicsSystem* GetPhysicsSystem() { return m_physicsSystem.get(); }
+
+    // --- System Access ---
+    Renderer* GetRenderer() { return m_renderer.get(); }
+    UI::UISystem* GetUI() { return m_uiSystem.get(); }
 
   private:
     // --- Core Systems ---
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<PhysicsSystem> m_physicsSystem;
+    std::unique_ptr<UI::UISystem> m_uiSystem;
     UpdateCallback m_updateCallback;
 
     // --- Entity Storage ---
     std::vector<Entity> m_entities;
+    std::vector<std::string> m_entityNames;
     int m_nextEntityId = 0;
 
     // --- Engine State ---
@@ -108,11 +134,12 @@ class Engine {
     // --- Internal Methods ---
     void Update(float deltaTime);
     void Render();
+    void RenderUI();
     void SyncPhysicsToGraphics();
 
-    // --- Entity Management ---
-    bool IsValidEntity(int id) const;
-    Entity* GetEntityPtr(int id);
+    // --- Input Management ---
+    void HandleInput();
+    bool m_f1KeyPressed = false;
 };
 
 }  // namespace Blacksite

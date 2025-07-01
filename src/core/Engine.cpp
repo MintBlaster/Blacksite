@@ -40,10 +40,10 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
         return false;
     }
 
-    // Initialize Editor Core (replaces ImGuiManager)
-    m_editorCore = std::make_unique<Editor::EditorCore>();
-    if (!m_editorCore->Initialize(m_window->GetGLFWindow())) {
-        BS_ERROR(LogCategory::CORE, "Failed to initialize editor core!");
+    // Initialize UI system
+    m_uiSystem = std::make_unique<UI::UISystem>();
+    if (!m_uiSystem->Initialize(m_window->GetGLFWindow())) {
+        BS_ERROR(LogCategory::CORE, "Failed to initialize UI system!");
         return false;
     }
 
@@ -72,17 +72,17 @@ int Engine::Run() {
         m_window->PollEvents();
         HandleInput();
 
-        // Editor frame management
-        m_editorCore->BeginFrame();
-
+        // UI frame management
+        m_uiSystem->BeginFrame();
+        
         Update(deltaTime);
-
-        // Render editor UI
-        m_editorCore->Render(*this);
-
+        
+        // Render UI
+        RenderUI();
+        
         Render();
-
-        m_editorCore->EndFrame();
+        
+        m_uiSystem->EndFrame();
         m_window->SwapBuffers();
     }
 
@@ -93,9 +93,7 @@ int Engine::Run() {
 void Engine::HandleInput() {
     // F1 key - Toggle Editor
     bool f1Current = glfwGetKey(m_window->GetGLFWindow(), GLFW_KEY_F1) == GLFW_PRESS;
-    if (f1Current && !m_f1KeyPressed) {
-        m_editorCore->ToggleVisibility();
-    }
+    // F1 key handling removed
     m_f1KeyPressed = f1Current;
 
     // ESC key - Close engine
@@ -111,9 +109,10 @@ void Engine::Shutdown() {
 
     BS_INFO(LogCategory::CORE, "Shutting down Blacksite Engine...");
 
-    if (m_editorCore) {
-        m_editorCore->Shutdown();
-        m_editorCore.reset();
+    // Shutdown UI system
+    if (m_uiSystem) {
+        m_uiSystem->Shutdown();
+        m_uiSystem.reset();
     }
 
     m_entities.clear();
@@ -242,12 +241,70 @@ glm::vec3 Engine::GetCameraTarget() const {
 }
 
 void Engine::SyncPhysicsToGraphics() {
+    // Copy physics positions back to transform positions
     for (auto& entity : m_entities) {
         if (entity.hasPhysics && entity.active) {
             entity.transform.position = m_physicsSystem->GetBodyPosition(entity.physicsBody);
             entity.transform.rotation = m_physicsSystem->GetBodyRotation(entity.physicsBody);
         }
     }
+}
+
+void Engine::RenderUI() {
+    if (!m_uiSystem) return;
+
+    // Begin dockspace for editor layout
+    m_uiSystem->BeginDockSpace();
+    
+    // Main menu bar
+    if (m_uiSystem->BeginMainMenuBar()) {
+        if (m_uiSystem->BeginMenu("File")) {
+            if (m_uiSystem->MenuItem("New Scene")) {
+                BS_INFO(LogCategory::EDITOR, "New Scene requested");
+            }
+            if (m_uiSystem->MenuItem("Save Scene")) {
+                BS_INFO(LogCategory::EDITOR, "Save Scene requested");
+            }
+            m_uiSystem->Separator();
+            if (m_uiSystem->MenuItem("Exit")) {
+                BS_INFO(LogCategory::EDITOR, "Exit requested");
+                m_running = false;
+            }
+            m_uiSystem->EndMenu();
+        }
+        
+        if (m_uiSystem->BeginMenu("View")) {
+            if (m_uiSystem->MenuItem("Scene Hierarchy")) {
+                BS_DEBUG(LogCategory::EDITOR, "Scene Hierarchy panel toggled");
+            }
+            if (m_uiSystem->MenuItem("Entity Inspector")) {
+                BS_DEBUG(LogCategory::EDITOR, "Entity Inspector panel toggled");
+            }
+            if (m_uiSystem->MenuItem("Console")) {
+                BS_DEBUG(LogCategory::EDITOR, "Console panel toggled");
+            }
+            if (m_uiSystem->MenuItem("Performance")) {
+                BS_DEBUG(LogCategory::EDITOR, "Performance panel toggled");
+            }
+            m_uiSystem->EndMenu();
+        }
+        
+        if (m_uiSystem->BeginMenu("Tools")) {
+            if (m_uiSystem->MenuItem("Spawn Cube")) {
+                SpawnCube({0, 5, 0});
+                BS_INFO(LogCategory::EDITOR, "Cube spawned from menu");
+            }
+            if (m_uiSystem->MenuItem("Spawn Sphere")) {
+                SpawnSphere({0, 5, 0});
+                BS_INFO(LogCategory::EDITOR, "Sphere spawned from menu");
+            }
+            m_uiSystem->EndMenu();
+        }
+        
+        m_uiSystem->EndMainMenuBar();
+    }
+    
+    m_uiSystem->EndDockSpace();
 }
 
 Engine::EntityHandle Engine::GetEntity(int id) {

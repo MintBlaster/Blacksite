@@ -74,16 +74,6 @@ target_compile_options(BlacksiteEngine PRIVATE
 add_executable(blacksite_test src/main.cpp)
 target_link_libraries(blacksite_test BlacksiteEngine)
 
-# Logger test executable
-add_executable(test_logger src/test_logger.cpp)
-target_link_libraries(test_logger BlacksiteEngine)
-
-# Minimal test executable
-add_executable(minimal_test src/minimal_main.cpp)
-target_link_libraries(minimal_test BlacksiteEngine)
-
-# Debug test executable
-add_executable(debug_test src/debug_main.cpp)
-target_link_libraries(debug_test BlacksiteEngine)
+# Main executable only
 
 message(STATUS "Blacksite Engine configured")
