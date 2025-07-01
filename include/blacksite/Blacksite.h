@@ -3,6 +3,7 @@
 // --- Core ---
 #include <cmath>
 #include "core/Engine.h"
+#include "core/Logger.h"
 #include "core/Window.h"
 
 // --- Graphics ---

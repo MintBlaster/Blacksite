@@ -1,8 +1,8 @@
 #include <GL/glew.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <iostream>
 
 #include <blacksite/graphics/ShaderManager.h>
+#include <blacksite/core/Logger.h>
 #include <GL/glext.h>
 
 namespace Blacksite {
@@ -16,7 +16,7 @@ bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     if (!CompileShader(vertexShader, vertexSource)) {
         glDeleteShader(vertexShader);
-        std::cerr << "Vertex Shader compilation failed for : " << name << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Vertex Shader compilation failed for: %s", name.c_str());
         return false;
     }
 
@@ -24,7 +24,7 @@ bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     if (!CompileShader(fragmentShader, fragmentSource)) {
         glDeleteShader(fragmentShader);
-        std::cerr << "Fragment Shader compilation failed for : " << name << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Fragment Shader compilation failed for: %s", name.c_str());
         return false;
     }
 
@@ -37,7 +37,7 @@ bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
         glDeleteProgram(program);
-        std::cerr << "Shader program linking failed for : " << name << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Shader program linking failed for: %s", name.c_str());
     }
 
     // Clean up individual shader - we don't need them anymore
@@ -46,7 +46,7 @@ bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource
 
     m_shaderPrograms[name] = program;
 
-    std::cout << "Shader " << name << " loaded successfully." << std::endl;
+    BS_DEBUG_F(LogCategory::RENDERER, "Shader '%s' loaded successfully", name.c_str());
     return true;
 }
 
@@ -57,14 +57,14 @@ bool ShaderManager::UseShader(const std::string& name) {
         glUseProgram(m_currentProgram);
         return true;
     } else {
-        std::cerr << "Shader not found : " << name << " (did you forgot to load it?)" << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Shader not found: %s (did you forget to load it?)", name.c_str());
         return false;
     }
 }
 
 void ShaderManager::SetUniform(const std::string& name, const glm::mat4& matrix) {
     if (m_currentProgram == 0) {
-        std::cerr << "No shader currently active - call UseShader() first!" << std::endl;
+        BS_ERROR(LogCategory::RENDERER, "No shader currently active - call UseShader() first!");
         return;
     }
 
@@ -74,7 +74,7 @@ void ShaderManager::SetUniform(const std::string& name, const glm::mat4& matrix)
         glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
     } else {
         // Uniform not found
-        std::cerr << "Uniform '" << name << "' not found in current shader" << std::endl;
+        BS_WARN_F(LogCategory::RENDERER, "Uniform '%s' not found in current shader", name.c_str());
     }
 }
 
@@ -107,7 +107,7 @@ void ShaderManager::Cleanup() {
     m_shaderPrograms.clear();
     m_currentProgram = 0;
 
-    std::cout << "ShaderManager cleaned up." << std::endl;
+    BS_DEBUG(LogCategory::RENDERER, "ShaderManager cleaned up");
 }
 
 bool ShaderManager::CompileShader(unsigned int shader, const char* source) {
@@ -120,8 +120,8 @@ bool ShaderManager::CompileShader(unsigned int shader, const char* source) {
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "Shader compilation failed : " << infoLog << std::endl;
-        std::cerr << "Pro tip: Check your GLSL syntax, semicolons, and uniform names" << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Shader compilation failed: %s", infoLog);
+        BS_ERROR(LogCategory::RENDERER, "Check your GLSL syntax, semicolons, and uniform names");
         return false;
     }
 
@@ -138,8 +138,8 @@ bool ShaderManager::LinkProgram(unsigned int program) {
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        std::cerr << "Shader program linking failed: " << infoLog << std::endl;
-        std::cerr << "Usually means vertex/fragment outputs don't match up" << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Shader program linking failed: %s", infoLog);
+        BS_ERROR(LogCategory::RENDERER, "Usually means vertex/fragment outputs don't match up");
         return false;
     }
     return true;

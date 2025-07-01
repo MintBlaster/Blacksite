@@ -1,7 +1,7 @@
 #include "blacksite/graphics/GeometryManager.h"
+#include "blacksite/core/Logger.h"
 
 #include <cmath>
-#include <iostream>
 
 namespace Blacksite {
 
@@ -43,7 +43,7 @@ void GeometryManager::CreateCube(const std::string& name) {
     m_meshes[name] = CreateMesh(vertices);
     m_meshes[name].vertexCount = 36;  // 6 faces * 2 triangles * 3 vertices
 
-    std::cout << "Cube geometry '" << name << "' created (all 6 boring sides accounted for)" << std::endl;
+    BS_DEBUG_F(LogCategory::RENDERER, "Cube geometry '%s' created", name.c_str());
 }
 
 void GeometryManager::CreateSphere(const std::string& name, float radius, int sectors, int stacks) {
@@ -57,8 +57,8 @@ void GeometryManager::CreateSphere(const std::string& name, float radius, int se
     m_meshes[name].useIndices = true;
     m_meshes[name].indexCount = indices.size();
 
-    std::cout << "Sphere geometry '" << name << "' created with " << vertices.size() / 6 << " vertices, "
-              << indices.size() << " indices (spherical geometry achieved)" << std::endl;
+    BS_DEBUG_F(LogCategory::RENDERER, "Sphere geometry '%s' created with %zu vertices, %zu indices", 
+               name.c_str(), vertices.size() / 6, indices.size());
 }
 
 void GeometryManager::CreatePlane(const std::string& name) {
@@ -78,7 +78,7 @@ void GeometryManager::CreatePlane(const std::string& name) {
     m_meshes[name] = CreateMesh(vertices);
     m_meshes[name].vertexCount = 6;  // 2 triangles * 3 vertices
 
-    std::cout << "Plane geometry '" << name << "' created (flat and proud of it)" << std::endl;
+    BS_DEBUG_F(LogCategory::RENDERER, "Plane geometry '%s' created", name.c_str());
 }
 
 const Mesh* GeometryManager::GetMesh(const std::string& name) const {
@@ -87,7 +87,7 @@ const Mesh* GeometryManager::GetMesh(const std::string& name) const {
         return &it->second;
     }
 
-    std::cerr << "Mesh '" << name << "' not found! Did you forget to create it?" << std::endl;
+    BS_ERROR_F(LogCategory::RENDERER, "Mesh '%s' not found! Did you forget to create it?", name.c_str());
     return nullptr;
 }
 
@@ -107,7 +107,7 @@ void GeometryManager::Cleanup() {
     }
     m_meshes.clear();
 
-    std::cout << "GeometryManager cleaned up (all meshes freed to the void)" << std::endl;
+    BS_DEBUG(LogCategory::RENDERER, "GeometryManager cleaned up");
 }
 
 void GeometryManager::GenerateSphere(std::vector<float>& vertices, std::vector<unsigned int>& indices, float radius,

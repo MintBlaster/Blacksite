@@ -29,6 +29,20 @@ add_library(JoltPhysics STATIC ${JOLT_SOURCES})
 target_include_directories(JoltPhysics PUBLIC ${JOLT_DIR} ${JOLT_SRC_DIR})
 target_compile_options(JoltPhysics PRIVATE -w)
 
+# ImGui setup
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/third_party/imgui)
+file(GLOB IMGUI_SOURCES
+    ${IMGUI_DIR}/*.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
+
 # Create Blacksite Engine Library
 add_library(BlacksiteEngine STATIC ${BLACKSITE_SOURCES})
 
@@ -42,10 +56,11 @@ target_link_libraries(BlacksiteEngine PUBLIC
     GLEW::GLEW
     JoltPhysics
     assimp::assimp
+    imgui
 )
 
-target_compile_definitions(BlacksiteEngine PUBLIC 
-    GLEW_STATIC 
+target_compile_definitions(BlacksiteEngine PUBLIC
+    GLEW_STATIC
     GLM_ENABLE_EXPERIMENTAL
 )
 
@@ -58,5 +73,17 @@ target_compile_options(BlacksiteEngine PRIVATE
 # Main test executable
 add_executable(blacksite_test src/main.cpp)
 target_link_libraries(blacksite_test BlacksiteEngine)
+
+# Logger test executable
+add_executable(test_logger src/test_logger.cpp)
+target_link_libraries(test_logger BlacksiteEngine)
+
+# Minimal test executable
+add_executable(minimal_test src/minimal_main.cpp)
+target_link_libraries(minimal_test BlacksiteEngine)
+
+# Debug test executable
+add_executable(debug_test src/debug_main.cpp)
+target_link_libraries(debug_test BlacksiteEngine)
 
 message(STATUS "Blacksite Engine configured")

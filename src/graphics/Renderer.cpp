@@ -1,8 +1,8 @@
 #include <cstdlib>
 #include <glm/gtc/type_ptr.hpp>
-#include <iostream>
 
 #include "blacksite/graphics/Renderer.h"
+#include "blacksite/core/Logger.h"
 
 namespace Blacksite {
 
@@ -86,7 +86,7 @@ bool Renderer::Initialize(int width, int height) {
     SetupDefaultShaders();
     SetupDefaultGeometry();
 
-    std::cout << "Renderer initialized successfully (the graphics gods smile upon us)" << std::endl;
+    BS_INFO(LogCategory::RENDERER, "Renderer initialized successfully");
     return true;
 }
 
@@ -95,7 +95,7 @@ void Renderer::Shutdown() {
     m_shaderManager.Cleanup();
     m_geometryManager.Cleanup();
 
-    std::cout << "Renderer shut down cleanly (no memory leaks detected)" << std::endl;
+    BS_INFO(LogCategory::RENDERER, "Renderer shut down cleanly");
 }
 
 void Renderer::BeginFrame() {
@@ -163,15 +163,14 @@ void Renderer::OnWindowResize(int width, int height) {
     // Update camera aspect ratio
     m_camera.SetAspectRatio((float)width / height);
 
-    std::cout << "Renderer resized to " << width << "x" << height << " (hopefully everything still looks right)"
-              << std::endl;
+    BS_DEBUG_F(LogCategory::RENDERER, "Renderer resized to %dx%d", width, height);
 }
 
 void Renderer::SetupDefaultShaders() {
     // Load our basic shader
     bool success = m_shaderManager.LoadShader("basic", BASIC_VERTEX_SHADER, BASIC_FRAGMENT_SHADER);
     if (!success) {
-        std::cerr << "Failed to load basic shader - everything will be broken!" << std::endl;
+        BS_FATAL(LogCategory::RENDERER, "Failed to load basic shader - everything will be broken!");
         std::exit(EXIT_FAILURE);
     }
 }
@@ -182,15 +181,14 @@ void Renderer::SetupDefaultGeometry() {
     m_geometryManager.CreateSphere();
     m_geometryManager.CreatePlane();
 
-    std::cout << "Default geometry created (cube, sphere, plane - the holy trinity)" << std::endl;
+    BS_DEBUG(LogCategory::RENDERER, "Default geometry created (cube, sphere, plane)");
 }
 
 void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     // Get the mesh we want to render
     const Mesh* mesh = m_geometryManager.GetMesh(command.meshName);
     if (!mesh) {
-        std::cerr << "Mesh not found: " << command.meshName << " (check your spelling and make sure it was created)"
-                  << std::endl;
+        BS_ERROR_F(LogCategory::RENDERER, "Mesh not found: %s", command.meshName.c_str());
         return;
     }
 

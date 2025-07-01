@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
-#include <iostream>
+#include "blacksite/core/Logger.h"
 #include "Core/IssueReporting.h"
 #include "Core/Memory.h"
 
@@ -16,13 +16,13 @@ static void TraceImpl(const char* inFMT, ...) {
     char buffer[1024];
     std::vsnprintf(buffer, sizeof(buffer), inFMT, list);
     va_end(list);
-    std::cout << "[Jolt] " << buffer << std::endl;
+    BS_DEBUG_F(Blacksite::LogCategory::PHYSICS, "[Jolt] %s", buffer);
 }
 
 #ifdef JPH_ENABLE_ASSERTS
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, JPH::uint inLine) {
-    std::cerr << "[Jolt Assert] " << inFile << ":" << inLine << ": (" << inExpression << ") "
-              << (inMessage != nullptr ? inMessage : "") << std::endl;
+    BS_ERROR_F(Blacksite::LogCategory::PHYSICS, "[Jolt Assert] %s:%d: (%s) %s", 
+               inFile, inLine, inExpression, (inMessage != nullptr ? inMessage : ""));
     return true;
 }
 #endif
@@ -122,7 +122,7 @@ PhysicsSystem::~PhysicsSystem() {
 
 bool PhysicsSystem::Initialize() {
     if (m_initialized) {
-        std::cerr << "PhysicsSystem already initialized" << std::endl;
+        BS_ERROR(LogCategory::PHYSICS, "PhysicsSystem already initialized");
         return false;
     }
 
@@ -167,7 +167,7 @@ bool PhysicsSystem::Initialize() {
                           *m_broadPhaseLayerInterface, *m_objectVsBroadphaseLayerFilter, *m_objectVsObjectLayerFilter);
 
     m_initialized = true;
-    std::cout << "Physics system initialized successfully with Jolt Physics!" << std::endl;
+    BS_INFO(LogCategory::PHYSICS, "Physics system initialized successfully with Jolt Physics!");
     return true;
 }
 
@@ -189,7 +189,7 @@ void PhysicsSystem::Shutdown() {
     }
 
     m_initialized = false;
-    std::cout << "Physics system shut down." << std::endl;
+    BS_INFO(LogCategory::PHYSICS, "Physics system shut down");
 }
 
 void PhysicsSystem::Update(float deltaTime) {
@@ -211,7 +211,7 @@ JPH::BodyID PhysicsSystem::CreateBoxBody(const glm::vec3& position, const glm::v
 
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
-        std::cerr << "Failed to create box body!" << std::endl;
+        BS_ERROR(LogCategory::PHYSICS, "Failed to create box body!");
         return JPH::BodyID();
     }
 
@@ -231,7 +231,7 @@ JPH::BodyID PhysicsSystem::CreateSphereBody(const glm::vec3& position, float rad
 
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
-        std::cerr << "Failed to create sphere body!" << std::endl;
+        BS_ERROR(LogCategory::PHYSICS, "Failed to create sphere body!");
         return JPH::BodyID();
     }
 
@@ -250,7 +250,7 @@ JPH::BodyID PhysicsSystem::CreatePlaneBody(const glm::vec3& position, const glm:
 
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
-        std::cerr << "Failed to create plane body!" << std::endl;
+        BS_ERROR(LogCategory::PHYSICS, "Failed to create plane body!");
         return JPH::BodyID();
     }
 
@@ -316,7 +316,7 @@ void PhysicsSystem::MakeBodyStatic(JPH::BodyID bodyID) {
     m_physicsSystem->GetBodyInterface().SetMotionType(bodyID, JPH::EMotionType::Static, JPH::EActivation::DontActivate);
     m_physicsSystem->GetBodyInterface().SetObjectLayer(bodyID, NON_MOVING);
 
-    std::cout << "Body " << bodyID.GetIndex() << " is now static" << std::endl;
+    BS_DEBUG_F(LogCategory::PHYSICS, "Body %d is now static", bodyID.GetIndex());
 }
 
 void PhysicsSystem::MakeBodyDynamic(JPH::BodyID bodyID) {
@@ -327,7 +327,7 @@ void PhysicsSystem::MakeBodyDynamic(JPH::BodyID bodyID) {
     m_physicsSystem->GetBodyInterface().SetMotionType(bodyID, JPH::EMotionType::Dynamic, JPH::EActivation::Activate);
     m_physicsSystem->GetBodyInterface().SetObjectLayer(bodyID, MOVING);
 
-    std::cout << "Body " << bodyID.GetIndex() << " is now dynamic" << std::endl;
+    BS_DEBUG_F(LogCategory::PHYSICS, "Body %d is now dynamic", bodyID.GetIndex());
 }
 
 bool PhysicsSystem::IsBodyStatic(JPH::BodyID bodyID) {

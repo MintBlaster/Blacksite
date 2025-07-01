@@ -1,6 +1,6 @@
 #include "blacksite/core/Window.h"
+#include "blacksite/core/Logger.h"
 #include <GLFW/glfw3.h>
-#include <iostream>
 
 namespace Blacksite {
 
@@ -15,7 +15,7 @@ bool Window::Initialize(int width, int height, const std::string& title) {
     m_height = height;
 
     if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW " << std::endl;
+        BS_ERROR(LogCategory::CORE, "Failed to initialize GLFW");
         Shutdown();  // Defensive—should be safe even if glfwInit failed
         return false;
     }
@@ -28,7 +28,7 @@ bool Window::Initialize(int width, int height, const std::string& title) {
     // --- Create window ---
     m_window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (!m_window) {
-        std::cerr << "Failed to create GLFW window." << std::endl;
+        BS_ERROR(LogCategory::CORE, "Failed to create GLFW window");
         glfwTerminate();  // glfwInit succeeded, must clean it up
         return false;
     }
@@ -37,8 +37,8 @@ bool Window::Initialize(int width, int height, const std::string& title) {
 
     // --- Load OpenGL functions via GLEW ---
     if (glewInit() != GLEW_OK) {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
-        return false;  // No recovery—OpenGL functions won’t be available
+        BS_ERROR(LogCategory::CORE, "Failed to initialize GLEW");
+        return false;  // No recovery—OpenGL functions won't be available
     }
 
     // --- Setup default GL state ---
