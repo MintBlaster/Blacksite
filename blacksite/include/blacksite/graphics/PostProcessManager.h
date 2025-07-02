@@ -12,11 +12,15 @@ struct PostProcessSettings {
     bool enableFXAA = true;
     bool enableToneMapping = true;
     bool showBloomTexture = false;
-    float bloomThreshold = 0.8f;
-    float bloomStrength = 1.0f;
-    int bloomBlurPasses = 5;
-    float exposure = 1.0f;
-    float gamma = 2.2f;
+
+    // Bloom
+    float bloomThreshold = 1.2f;   // Only really bright pixels bloom (prevents flashlight vomit)
+    float bloomStrength = 0.6f;    // Less aggressive glow
+    int bloomBlurPasses = 3;       // Less blur for sharper bloom edges
+
+    // Tonemapping & exposure
+    float exposure = 1.1f;         // Slightly boosted but not overblown
+    float gamma = 2.0f;            // Less contrasty than 2.2, keeps mids readable
 };
 
 struct FrameBuffer {

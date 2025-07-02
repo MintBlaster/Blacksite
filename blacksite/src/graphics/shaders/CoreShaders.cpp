@@ -67,14 +67,20 @@ const char* BASIC_FRAGMENT_SHADER = R"(
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
         vec3 specular = specularStrength * spec * lightColor;
 
+        // HDR-friendly: Don't clamp the result, allow bright colors to stay bright
         vec3 result = (ambient + diffuse + specular) * baseColor;
+
+        // For HDR bloom: if baseColor is bright (>1.0), preserve it
+        // This allows your {10.0, 2.0, 2.0} colors to work for bloom
         FragColor = vec4(result, 1.0);
     }
 )";
 
+
 const char* UNLIT_VERTEX_SHADER = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec3 aNormal;  // Add this
     layout (location = 2) in vec2 aTexCoord;
 
     uniform mat4 uModel;
@@ -89,6 +95,7 @@ const char* UNLIT_VERTEX_SHADER = R"(
         gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
     }
 )";
+
 
 const char* UNLIT_FRAGMENT_SHADER = R"(
     #version 330 core
@@ -151,9 +158,13 @@ const char* TRANSPARENT_FRAGMENT_SHADER = R"(
 
     void main()
     {
-        vec4 texColor = vec4(uColor, uAlpha);
+        vec3 baseColor = uColor;
+        float alpha = uAlpha;
+
         if (uHasTexture) {
-            texColor *= texture(uTexture, TexCoord);
+            vec4 texSample = texture(uTexture, TexCoord);
+            baseColor *= texSample.rgb;
+            alpha *= texSample.a;  // Properly combine alpha
         }
 
         vec3 lightColor = vec3(1.0);
@@ -166,10 +177,11 @@ const char* TRANSPARENT_FRAGMENT_SHADER = R"(
         float diff = max(dot(norm, lightDir), 0.0);
         vec3 diffuse = diff * lightColor;
 
-        vec3 result = (ambient + diffuse) * texColor.rgb;
-        FragColor = vec4(result, texColor.a);
+        vec3 result = (ambient + diffuse) * baseColor;
+        FragColor = vec4(result, alpha);
     }
 )";
+
 
 } // namespace Shaders
 } // namespace Blacksite

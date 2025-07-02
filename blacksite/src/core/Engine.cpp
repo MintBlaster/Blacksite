@@ -67,8 +67,8 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
     auto builtInShaders = m_shaderSystem->GetBuiltInShaders();
     auto userShaders = m_shaderSystem->GetUserShaders();
 
-    BS_INFO_F(LogCategory::CORE, "Shader System: %zu total shaders (%zu built-in, %zu user)",
-              availableShaders.size(), builtInShaders.size(), userShaders.size());
+    BS_INFO_F(LogCategory::CORE, "Shader System: %zu total shaders (%zu built-in, %zu user)", availableShaders.size(),
+              builtInShaders.size(), userShaders.size());
 
     m_initialized = true;
     BS_INFO(LogCategory::CORE, "Blacksite Engine initialized successfully");
@@ -105,23 +105,22 @@ int Engine::Run() {
 }
 
 void Engine::HandleInput() {
-    m_inputSystem->Update();
 
     // Handle engine-level inputs
-    if (m_inputSystem->IsEscapePressed()) {
+    if (m_inputSystem->KeyPressed(Key::Escape)) {
         m_running = false;
         BS_INFO(LogCategory::CORE, "Engine shutdown requested via ESC key");
     }
 
     // Add shader hot-reload toggle
-    if (m_inputSystem->IsF5JustPressed()) {
+    if (m_inputSystem->KeyPressed(Key::F5)) {
         BS_INFO(LogCategory::CORE, "F5 pressed - toggling shader hot reloading");
         bool currentState = m_shaderSystem->GetHotReloadEnabled();
         m_shaderSystem->EnableHotReloading(!currentState);
     }
 
     // Future: Handle other global inputs like F1 for editor toggle
-    if (m_inputSystem->IsF1JustPressed()) {
+    if (m_inputSystem->KeyPressed(Key::F1)) {
         BS_DEBUG(LogCategory::CORE, "F1 pressed - future editor toggle");
     }
 }
@@ -163,7 +162,7 @@ void Engine::Shutdown() {
     m_inputSystem.reset();
     m_renderer.reset();
     m_physicsSystem.reset();
-    m_shaderSystem.reset(); // Add shader system shutdown
+    m_shaderSystem.reset();  // Add shader system shutdown
     m_window.reset();
 
     m_running = false;
@@ -239,6 +238,11 @@ glm::vec3 Engine::GetCameraTarget() const {
 void Engine::UpdateFrame(float deltaTime) {
     if (!m_initialized)
         return;
+
+    if (m_inputSystem) {
+        m_inputSystem->Update();
+    }
+
     Update(deltaTime);
 }
 

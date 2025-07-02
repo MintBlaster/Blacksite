@@ -215,7 +215,7 @@ class InspectorPanel : public EditorPanel {
                 ImGui::Text("Shape: %s", shapeNames[currentShape]);
 
                 // Shader selection
-                const char* shaders[] = {"basic", "rainbow", "glow", "holo", "wireframe", "plasma"};
+                const char* shaders[] = {"basic", "unlit", "wireframe", "debug", "transparent"};
                 int currentShader = 0;
 
                 // Find current shader index
@@ -643,41 +643,39 @@ class PostProcessPanel : public EditorPanel {
   public:
     PostProcessPanel(Blacksite::Engine* engine) : m_engine(engine) {}
 
-    void Render() override {
-        if (!ImGui::Begin("Post-Processing", &m_visible)) {
-            ImGui::End();
-            return;
-        }
+        void Render() override {
+            if (!ImGui::Begin("Post-Processing", &m_visible)) {
+                ImGui::End();
+                return;
+            }
 
-        auto* renderer = m_engine->GetRenderer();
-        if (!renderer || !renderer->GetPostProcessManager()) {
-            ImGui::Text("Post-processing not available");
-            ImGui::End();
-            return;
-        }
+            auto* renderer = m_engine->GetRenderer();
+            if (!renderer || !renderer->GetPostProcessManager()) {
+                ImGui::Text("Post-processing not available");
+                ImGui::End();
+                return;
+            }
 
-        auto* postProcess = renderer->GetPostProcessManager();
-        auto& settings = postProcess->GetSettings();
+            auto* postProcess = renderer->GetPostProcessManager();
+            auto& settings = postProcess->GetSettings();
 
-        // Master toggle
-        bool postProcessEnabled = renderer->IsPostProcessingEnabled();
-        if (ImGui::Checkbox("Enable Post-Processing", &postProcessEnabled)) {
-            renderer->EnablePostProcessing(postProcessEnabled);
-        }
+            // Master toggle
+            bool postProcessEnabled = renderer->IsPostProcessingEnabled();
+            if (ImGui::Checkbox("Enable Post-Processing", &postProcessEnabled)) {
+                renderer->EnablePostProcessing(postProcessEnabled);
+            }
 
-        if (!postProcessEnabled) {
-            ImGui::Text("Post-processing is disabled");
-            ImGui::End();
-            return;
-        }
+            if (!postProcessEnabled) {
+                ImGui::Text("Post-processing is disabled");
+                ImGui::End();
+                return;
+            }
 
-        ImGui::Separator();
+            ImGui::Separator();
 
-        // Tone Mapping Section
-        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Checkbox("Enable Tone Mapping", &settings.enableToneMapping);
-
-            if (settings.enableToneMapping) {
+            // Tone Mapping Section
+            if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
+                // Removed enableToneMapping (diagnostic fix)
                 ImGui::SliderFloat("Exposure", &settings.exposure, 0.1f, 3.0f, "%.2f");
                 ImGui::SliderFloat("Gamma", &settings.gamma, 1.0f, 3.0f, "%.2f");
 
@@ -697,74 +695,75 @@ class PostProcessPanel : public EditorPanel {
                     settings.gamma = 2.0f;
                 }
             }
-        }
 
-        // Bloom Section
-        if (ImGui::CollapsingHeader("Bloom", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Checkbox("Enable Bloom", &settings.enableBloom);
+            // Bloom Section
+            if (ImGui::CollapsingHeader("Bloom", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Checkbox("Enable Bloom", &settings.enableBloom);
 
-            if (settings.enableBloom) {
-                ImGui::SliderFloat("Bloom Threshold", &settings.bloomThreshold, 0.1f, 2.0f, "%.2f");
-                ImGui::SliderFloat("Bloom Strength", &settings.bloomStrength, 0.0f, 2.0f, "%.2f");
-                ImGui::SliderInt("Blur Passes", &settings.bloomBlurPasses, 1, 10);
+                if (settings.enableBloom) {
+                    ImGui::SliderFloat("Bloom Threshold", &settings.bloomThreshold, 0.1f, 2.0f, "%.2f");
+                    ImGui::SliderFloat("Bloom Strength", &settings.bloomStrength, 0.0f, 2.0f, "%.2f");
+                    ImGui::SliderInt("Blur Passes", &settings.bloomBlurPasses, 1, 10);
 
-                ImGui::Separator();
-                ImGui::Checkbox("Show Bloom Texture (Debug)", &settings.showBloomTexture);
+                    ImGui::Separator();
+                    // Removed showBloomTexture (diagnostic fix)
+                    // ImGui::Checkbox("Show Bloom Texture (Debug)", &settings.showBloomTexture);
 
-                // Quick presets
-                if (ImGui::Button("Subtle")) {
-                    settings.bloomThreshold = 1.2f;
-                    settings.bloomStrength = 0.3f;
-                    settings.bloomBlurPasses = 3;
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Normal")) {
-                    settings.bloomThreshold = 0.8f;
-                    settings.bloomStrength = 0.8f;
-                    settings.bloomBlurPasses = 5;
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Intense")) {
-                    settings.bloomThreshold = 0.5f;
-                    settings.bloomStrength = 1.5f;
-                    settings.bloomBlurPasses = 7;
+                    // Quick presets
+                    if (ImGui::Button("Subtle")) {
+                        settings.bloomThreshold = 1.2f;
+                        settings.bloomStrength = 0.3f;
+                        settings.bloomBlurPasses = 3;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Normal")) {
+                        settings.bloomThreshold = 0.8f;
+                        settings.bloomStrength = 0.8f;
+                        settings.bloomBlurPasses = 5;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Intense")) {
+                        settings.bloomThreshold = 0.5f;
+                        settings.bloomStrength = 1.5f;
+                        settings.bloomBlurPasses = 7;
+                    }
                 }
             }
-        }
 
-        // FXAA Section
-        if (ImGui::CollapsingHeader("Anti-Aliasing")) {
-            ImGui::Checkbox("Enable FXAA", &settings.enableFXAA);
+            // FXAA Section
+            if (ImGui::CollapsingHeader("Anti-Aliasing")) {
+                ImGui::Checkbox("Enable FXAA", &settings.enableFXAA);
 
-            if (settings.enableFXAA) {
-                ImGui::Text("FXAA helps smooth jagged edges");
-                ImGui::Text("Performance impact: Low");
+                if (settings.enableFXAA) {
+                    ImGui::Text("FXAA helps smooth jagged edges");
+                    ImGui::Text("Performance impact: Low");
+                }
             }
+
+            // Performance Info
+            ImGui::Separator();
+            if (ImGui::CollapsingHeader("Performance Info")) {
+                ImGuiIO& io = ImGui::GetIO();
+                ImGui::Text("Frame Time: %.3f ms", 1000.0f / io.Framerate);
+                ImGui::Text("FPS: %.1f", io.Framerate);
+
+                // Estimate performance impact
+                int activeEffects = 0;
+                // Removed enableToneMapping (diagnostic fix)
+                // if (settings.enableToneMapping)
+                //     activeEffects++;
+                if (settings.enableBloom)
+                    activeEffects += 2;  // Bloom is more expensive
+                if (settings.enableFXAA)
+                    activeEffects++;
+
+                const char* perfLevel[] = {"Minimal", "Low", "Medium", "High", "Very High"};
+                int perfIndex = std::min(activeEffects, 4);
+                ImGui::Text("Performance Impact: %s", perfLevel[perfIndex]);
+            }
+
+            ImGui::End();
         }
-
-        // Performance Info
-        ImGui::Separator();
-        if (ImGui::CollapsingHeader("Performance Info")) {
-            ImGuiIO& io = ImGui::GetIO();
-            ImGui::Text("Frame Time: %.3f ms", 1000.0f / io.Framerate);
-            ImGui::Text("FPS: %.1f", io.Framerate);
-
-            // Estimate performance impact
-            int activeEffects = 0;
-            if (settings.enableToneMapping)
-                activeEffects++;
-            if (settings.enableBloom)
-                activeEffects += 2;  // Bloom is more expensive
-            if (settings.enableFXAA)
-                activeEffects++;
-
-            const char* perfLevel[] = {"Minimal", "Low", "Medium", "High", "Very High"};
-            int perfIndex = std::min(activeEffects, 4);
-            ImGui::Text("Performance Impact: %s", perfLevel[perfIndex]);
-        }
-
-        ImGui::End();
-    }
 
     const char* GetName() const override { return "Post-Processing"; }
 

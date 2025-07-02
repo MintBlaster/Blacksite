@@ -1,7 +1,7 @@
 #include "blacksite/graphics/PostProcessManager.h"
+#include <iostream>
 #include "blacksite/core/Logger.h"
 #include "blacksite/graphics/ShaderSystem.h"
-#include <iostream>
 
 namespace Blacksite {
 
@@ -54,15 +54,6 @@ bool PostProcessManager::Initialize(int width, int height, ShaderSystem* shaderS
         }
     }
 
-    // Initialize settings
-    m_settings.enableBloom = true;
-    m_settings.enableFXAA = true;
-    m_settings.bloomThreshold = 0.8f;
-    m_settings.bloomStrength = 1.0f;
-    m_settings.bloomBlurPasses = 5;
-    m_settings.exposure = 1.0f;
-    m_settings.gamma = 2.2f;
-
     // Create framebuffers and screen quad
     CreateFrameBuffers();
     CreateScreenQuad();
@@ -74,6 +65,15 @@ bool PostProcessManager::Initialize(int width, int height, ShaderSystem* shaderS
     }
 
     DebugFrameBuffers();
+
+    m_settings.exposure = 0.2f;
+    m_settings.gamma = 2.2f;
+    m_settings.bloomThreshold = 0.8f;
+    m_settings.bloomStrength = 0.2f;
+    m_settings.bloomBlurPasses = 3;
+    m_settings.enableBloom = true;
+    m_settings.enableFXAA = true;
+    m_settings.enableToneMapping = true;
 
     m_initialized = true;
     BS_INFO(LogCategory::RENDERER, "PostProcessManager initialized successfully");
@@ -111,8 +111,7 @@ void PostProcessManager::OnWindowResize(int width, int height) {
         return;
     }
 
-    BS_INFO_F(LogCategory::RENDERER, "Resizing PostProcessManager: {}x{} -> {}x{}",
-            m_width, m_height, width, height);
+    BS_INFO_F(LogCategory::RENDERER, "Resizing PostProcessManager: {}x{} -> {}x{}", m_width, m_height, width, height);
 
     m_width = width;
     m_height = height;
@@ -138,8 +137,8 @@ void PostProcessManager::BeginFrame() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Ensure proper 3D rendering state
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
+    // glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_CULL_FACE);
 
     CheckGLError("BeginFrame");
 }
@@ -175,16 +174,17 @@ void PostProcessManager::EndFrame() {
         if (m_settings.enableFXAA) {
             ApplyFXAA();
         }
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         BS_ERROR_F(LogCategory::RENDERER, "Post-processing error: {}", e.what());
     }
 
     // Cleanup and restore state
     glUseProgram(0);
 
-    if (depthTest) glEnable(GL_DEPTH_TEST);
-    if (cullFace) glEnable(GL_CULL_FACE);
+    if (depthTest)
+        glEnable(GL_DEPTH_TEST);
+    if (cullFace)
+        glEnable(GL_CULL_FACE);
 
     CheckGLError("EndFrame");
 }
@@ -272,16 +272,10 @@ bool PostProcessManager::CreateFrameBuffer(FrameBuffer& fb, int width, int heigh
 
 void PostProcessManager::CreateScreenQuad() {
     // Full-screen quad vertices (position + texcoord)
-    float quadVertices[] = {
-        // positions   // texCoords
-        -1.0f,  1.0f,  0.0f, 1.0f,
-        -1.0f, -1.0f,  0.0f, 0.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
+    float quadVertices[] = {// positions   // texCoords
+                            -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f,
 
-        -1.0f,  1.0f,  0.0f, 1.0f,
-         1.0f, -1.0f,  1.0f, 0.0f,
-         1.0f,  1.0f,  1.0f, 1.0f
-    };
+                            -1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  -1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f};
 
     glGenVertexArrays(1, &m_quadVAO);
     glGenBuffers(1, &m_quadVBO);
@@ -338,7 +332,6 @@ void PostProcessManager::UnbindFrameBuffer() {
     CheckGLError("UnbindFrameBuffer");
 }
 
-
 void PostProcessManager::ExtractBloom() {
     if (!ValidateShader("postprocess")) {  // Use postprocess shader for extraction
         BS_ERROR(LogCategory::RENDERER, "Postprocess shader not available");
@@ -381,6 +374,9 @@ void PostProcessManager::BlurBloom() {
         BS_ERROR(LogCategory::RENDERER, "Failed to use blur shader");
         return;
     }
+
+    // Set blur size uniform
+    shaderManager.SetUniform("uBlurSize", 1.0f);
 
     bool horizontal = true;
     bool firstIteration = true;
@@ -441,8 +437,8 @@ void PostProcessManager::CombineAndToneMap() {
     // Bind bloom texture
     glActiveTexture(GL_TEXTURE1);
     if (m_settings.enableBloom) {
-        glBindTexture(GL_TEXTURE_2D, m_blurBuffer1.colorTexture); // Final blur result
-        shaderManager.SetUniform("uBloomBlur", 1);  // Correct uniform name
+        glBindTexture(GL_TEXTURE_2D, m_blurBuffer1.colorTexture);  // Final blur result
+        shaderManager.SetUniform("uBloomBlur", 1);                 // Correct uniform name
         shaderManager.SetUniform("uBloomStrength", m_settings.bloomStrength);
     } else {
         // Bind a black texture or set bloom strength to 0
@@ -514,18 +510,16 @@ void PostProcessManager::CheckGLError(const std::string& operation) {
 
 void PostProcessManager::DebugFrameBuffers() {
     BS_DEBUG(LogCategory::RENDERER, "=== PostProcess Debug ===");
-    BS_DEBUG_F(LogCategory::RENDERER, "Main buffer: FBO={}, Color={}, Depth={} ({}x{})",
-             m_mainBuffer.FBO, m_mainBuffer.colorTexture, m_mainBuffer.depthTexture,
-             m_mainBuffer.width, m_mainBuffer.height);
-    BS_DEBUG_F(LogCategory::RENDERER, "Bloom buffer: FBO={}, Color={} ({}x{})",
-             m_bloomBuffer.FBO, m_bloomBuffer.colorTexture,
-             m_bloomBuffer.width, m_bloomBuffer.height);
+    BS_DEBUG_F(LogCategory::RENDERER, "Main buffer: FBO={}, Color={}, Depth={} ({}x{})", m_mainBuffer.FBO,
+               m_mainBuffer.colorTexture, m_mainBuffer.depthTexture, m_mainBuffer.width, m_mainBuffer.height);
+    BS_DEBUG_F(LogCategory::RENDERER, "Bloom buffer: FBO={}, Color={} ({}x{})", m_bloomBuffer.FBO,
+               m_bloomBuffer.colorTexture, m_bloomBuffer.width, m_bloomBuffer.height);
 
     // Validate main framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, m_mainBuffer.FBO);
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    BS_DEBUG_F(LogCategory::RENDERER, "Main framebuffer status: 0x{:X} (complete=0x{:X})",
-             status, GL_FRAMEBUFFER_COMPLETE);
+    BS_DEBUG_F(LogCategory::RENDERER, "Main framebuffer status: 0x{:X} (complete=0x{:X})", status,
+               GL_FRAMEBUFFER_COMPLETE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     CheckGLError("DebugFrameBuffers");
@@ -536,4 +530,4 @@ void PostProcessManager::RenderDebugUI() {
     // This would allow adjusting bloom threshold, strength, blur passes, etc.
 }
 
-} // namespace Blacksite
+}  // namespace Blacksite

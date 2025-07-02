@@ -42,9 +42,7 @@ const char* POSTPROCESS_FRAGMENT_SHADER = R"(
                 FragColor = vec4(0.0, 0.0, 0.0, 1.0);
             }
         } else {
-            // Regular tone mapping and gamma correction
-            color = vec3(1.0) - exp(-color * uExposure);
-            color = pow(color, vec3(1.0 / uGamma));
+            // Pass through without tone mapping (tone mapping happens in bloom shader)
             FragColor = vec4(color, 1.0);
         }
     }
@@ -112,16 +110,33 @@ const char* BLOOM_FRAGMENT_SHADER = R"(
     uniform float uExposure;
     uniform float uGamma;
 
+    // Improved tone mapping function
+    vec3 reinhardToneMapping(vec3 color, float exposure) {
+        color *= exposure;
+        return color / (1.0 + color);
+    }
+
+    // Alternative: ACES tone mapping (more cinematic)
+    vec3 acesToneMapping(vec3 color, float exposure) {
+        color *= exposure;
+        float a = 2.51f;
+        float b = 0.03f;
+        float c = 2.43f;
+        float d = 0.59f;
+        float e = 0.14f;
+        return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
+    }
+
     void main()
     {
         vec3 sceneColor = texture(uScene, TexCoord).rgb;
         vec3 bloomColor = texture(uBloomBlur, TexCoord).rgb;
 
-        // Combine scene and bloom
+        // Combine scene and bloom with much lower bloom contribution
         vec3 result = sceneColor + bloomColor * uBloomStrength;
 
-        // Apply tone mapping
-        result = vec3(1.0) - exp(-result * uExposure);
+        // Apply improved tone mapping
+        result = reinhardToneMapping(result, uExposure);
 
         // Apply gamma correction
         result = pow(result, vec3(1.0 / uGamma));
@@ -129,6 +144,7 @@ const char* BLOOM_FRAGMENT_SHADER = R"(
         FragColor = vec4(result, 1.0);
     }
 )";
+
 
 const char* FXAA_VERTEX_SHADER = POSTPROCESS_VERTEX_SHADER;
 
@@ -140,6 +156,10 @@ const char* FXAA_FRAGMENT_SHADER = R"(
 
     uniform sampler2D uTexture;
     uniform vec2 uInverseScreenSize;
+
+    #define FXAA_REDUCE_MIN   (1.0/ 128.0)
+    #define FXAA_REDUCE_MUL   (1.0 / 8.0)
+    #define FXAA_SPAN_MAX     8.0
 
     void main()
     {
@@ -159,12 +179,16 @@ const char* FXAA_FRAGMENT_SHADER = R"(
         float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
         float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
 
-        vec2 dir = vec2(-((lumaNW + lumaNE) - (lumaSW + lumaSE)), ((lumaNW + lumaSW) - (lumaNE + lumaSE)));
+        vec2 dir = vec2(-((lumaNW + lumaNE) - (lumaSW + lumaSE)),
+                        ((lumaNW + lumaSW) - (lumaNE + lumaSE)));
 
-        float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * 0.125), 0.0078125);
+        float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) *
+                             (0.25 * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);
+
         float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);
 
-        dir = min(vec2(8.0), max(vec2(-8.0), dir * rcpDirMin)) * uInverseScreenSize;
+        dir = min(vec2(FXAA_SPAN_MAX), max(vec2(-FXAA_SPAN_MAX),
+                 dir * rcpDirMin)) * uInverseScreenSize;
 
         vec3 rgbA = 0.5 * (texture(uTexture, TexCoord + dir * (1.0/3.0 - 0.5)).rgb +
                           texture(uTexture, TexCoord + dir * (2.0/3.0 - 0.5)).rgb);
@@ -179,6 +203,7 @@ const char* FXAA_FRAGMENT_SHADER = R"(
         }
     }
 )";
+
 
 } // namespace Shaders
 } // namespace Blacksite

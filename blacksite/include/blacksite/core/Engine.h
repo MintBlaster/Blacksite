@@ -1,12 +1,12 @@
 #pragma once
 #include <functional>
 #include <memory>
-#include "blacksite/core/InputSystem.h"
 #include "blacksite/core/Window.h"
 #include "blacksite/graphics/Renderer.h"
 #include "blacksite/graphics/ShaderSystem.h"
 #include "blacksite/physics/PhysicsSystem.h"
 #include "blacksite/scene/SceneSystem.h"
+#include "blacksite/core/InputSystem.h"
 
 namespace Blacksite {
 

@@ -1,19 +1,9 @@
 #include "blacksite/core/InputSystem.h"
 #include "blacksite/core/Logger.h"
-#include <GLFW/glfw3.h>
 #include <cstring>
+#include <cctype>
 
 namespace Blacksite {
-
-InputSystem::InputSystem() {
-    // Initialize key arrays
-    std::memset(m_keys, false, sizeof(m_keys));
-    std::memset(m_keysLastFrame, false, sizeof(m_keysLastFrame));
-}
-
-InputSystem::~InputSystem() {
-    Shutdown();
-}
 
 bool InputSystem::Initialize(GLFWwindow* window) {
     if (m_initialized) {
@@ -29,24 +19,23 @@ bool InputSystem::Initialize(GLFWwindow* window) {
     m_window = window;
     m_initialized = true;
 
-    BS_INFO(LogCategory::INPUT, "InputSystem initialized successfully");
+    // Initialize arrays
+    std::memset(m_keys, false, sizeof(m_keys));
+    std::memset(m_keysLastFrame, false, sizeof(m_keysLastFrame));
+
+    BS_INFO(LogCategory::INPUT, "InputSystem initialized with new API");
     return true;
-}
-
-void InputSystem::Shutdown() {
-    if (!m_initialized) return;
-
-    m_window = nullptr;
-    m_initialized = false;
-
-    BS_INFO(LogCategory::INPUT, "InputSystem shut down");
 }
 
 void InputSystem::Update() {
     if (!m_initialized || !m_window) return;
 
     UpdateKeyStates();
-    UpdateMouseState();
+
+    // Only update mouse if we should capture it
+    if (ShouldCaptureMouse()) {
+        UpdateMouseState();
+    }
 }
 
 void InputSystem::UpdateKeyStates() {
@@ -87,31 +76,18 @@ bool InputSystem::IsKeyJustReleased(int key) const {
     return !m_keys[key] && m_keysLastFrame[key];
 }
 
-bool InputSystem::IsEscapePressed() const {
-    return IsKeyPressed(GLFW_KEY_ESCAPE);
-}
-
-bool InputSystem::IsF1JustPressed() const {
-    return IsKeyJustPressed(GLFW_KEY_F1);
-}
-
-bool InputSystem::IsF5JustPressed() const {
-    return IsKeyJustPressed(GLFW_KEY_F5);
-}
-
 bool InputSystem::IsMouseButtonPressed(int button) const {
     if (!m_window) return false;
     return glfwGetMouseButton(m_window, button) == GLFW_PRESS;
 }
 
-void InputSystem::GetMousePosition(double& x, double& y) const {
-    x = m_mouseX;
-    y = m_mouseY;
-}
+void InputSystem::Shutdown() {
+    if (!m_initialized) return;
 
-void InputSystem::GetMouseDelta(double& deltaX, double& deltaY) const {
-    deltaX = m_mouseX - m_lastMouseX;
-    deltaY = m_mouseY - m_lastMouseY;
+    m_window = nullptr;
+    m_initialized = false;
+
+    BS_INFO(LogCategory::INPUT, "InputSystem shut down");
 }
 
 } // namespace Blacksite
