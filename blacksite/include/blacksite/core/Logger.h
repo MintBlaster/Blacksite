@@ -32,6 +32,27 @@ enum class LogCategory {
     NETWORK
 };
 
+// Console color codes for different log levels
+enum class LogColor {
+    RESET = 0,
+    BLACK = 30,
+    RED = 31,
+    GREEN = 32,
+    YELLOW = 33,
+    BLUE = 34,
+    MAGENTA = 35,
+    CYAN = 36,
+    WHITE = 37,
+    BRIGHT_BLACK = 90,
+    BRIGHT_RED = 91,
+    BRIGHT_GREEN = 92,
+    BRIGHT_YELLOW = 93,
+    BRIGHT_BLUE = 94,
+    BRIGHT_MAGENTA = 95,
+    BRIGHT_CYAN = 96,
+    BRIGHT_WHITE = 97
+};
+
 struct LogEntry {
     LogLevel level;
     LogCategory category;
@@ -39,15 +60,15 @@ struct LogEntry {
     std::string timestamp;
     std::string file;
     int line;
-    
-    LogEntry(LogLevel lvl, LogCategory cat, const std::string& msg, 
+
+    LogEntry(LogLevel lvl, LogCategory cat, const std::string& msg,
              const std::string& f = "", int l = 0)
         : level(lvl), category(cat), message(msg), file(f), line(l) {
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             now.time_since_epoch()) % 1000;
-        
+
         std::stringstream ss;
         ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
         ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
@@ -65,28 +86,28 @@ public:
     // Core logging functions
     void Log(LogLevel level, LogCategory category, const std::string& message,
              const std::string& file = "", int line = 0);
-    
+
     // Convenience functions
     void Trace(LogCategory category, const std::string& message) {
         Log(LogLevel::TRACE, category, message);
     }
-    
+
     void Debug(LogCategory category, const std::string& message) {
         Log(LogLevel::DEBUG, category, message);
     }
-    
+
     void Info(LogCategory category, const std::string& message) {
         Log(LogLevel::INFO, category, message);
     }
-    
+
     void Warn(LogCategory category, const std::string& message) {
         Log(LogLevel::WARN, category, message);
     }
-    
+
     void Error(LogCategory category, const std::string& message) {
         Log(LogLevel::ERROR, category, message);
     }
-    
+
     void Fatal(LogCategory category, const std::string& message) {
         Log(LogLevel::FATAL, category, message);
     }
@@ -96,19 +117,20 @@ public:
     void SetConsoleOutput(bool enabled) { m_consoleOutput = enabled; }
     void SetFileOutput(bool enabled) { m_fileOutput = enabled; }
     void SetEditorOutput(bool enabled) { m_editorOutput = enabled; }
+    void SetColorOutput(bool enabled) { m_colorOutput = enabled; }
     void SetLogFile(const std::string& filename);
-    
+
     // Filter by category
     void EnableCategory(LogCategory category) { m_categoryFilter[(int)category] = true; }
     void DisableCategory(LogCategory category) { m_categoryFilter[(int)category] = false; }
-    
+
     // Editor integration
     const std::vector<LogEntry>& GetLogHistory() const { return m_logHistory; }
-    void ClearHistory() { 
+    void ClearHistory() {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_logHistory.clear(); 
+        m_logHistory.clear();
     }
-    
+
     // Initialize with sensible defaults
     void Initialize();
     void Shutdown();
@@ -116,26 +138,29 @@ public:
 private:
     Logger() = default;
     ~Logger() { Shutdown(); }
-    
+
     // Prevent copying
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
-    
+
     LogLevel m_level = LogLevel::DEBUG;
     bool m_consoleOutput = true;
     bool m_fileOutput = true;
     bool m_editorOutput = true;
-    
+    bool m_colorOutput = true;
+
     std::ofstream m_logFile;
     std::vector<LogEntry> m_logHistory;
     std::mutex m_mutex;
-    
+
     // Category filtering (all enabled by default)
     bool m_categoryFilter[8] = {true, true, true, true, true, true, true, true};
-    
+
     std::string LevelToString(LogLevel level) const;
     std::string CategoryToString(LogCategory category) const;
-    
+    LogColor GetLevelColor(LogLevel level) const;
+    std::string ColorToAnsi(LogColor color) const;
+
     void WriteToConsole(const LogEntry& entry);
     void WriteToFile(const LogEntry& entry);
     void AddToHistory(const LogEntry& entry);
@@ -161,11 +186,11 @@ private:
     Blacksite::Logger::Instance().Log(Blacksite::LogLevel::FATAL, category, message, __FILE__, __LINE__)
 
 // Formatted logging macros
-#define BS_INFO_F(category, format, ...) \
+#define BS_TRACE_F(category, format, ...) \
     do { \
         char buffer[512]; \
         snprintf(buffer, sizeof(buffer), format, __VA_ARGS__); \
-        BS_INFO(category, std::string(buffer)); \
+        BS_TRACE(category, std::string(buffer)); \
     } while(0)
 
 #define BS_DEBUG_F(category, format, ...) \
@@ -173,6 +198,13 @@ private:
         char buffer[512]; \
         snprintf(buffer, sizeof(buffer), format, __VA_ARGS__); \
         BS_DEBUG(category, std::string(buffer)); \
+    } while(0)
+
+#define BS_INFO_F(category, format, ...) \
+    do { \
+        char buffer[512]; \
+        snprintf(buffer, sizeof(buffer), format, __VA_ARGS__); \
+        BS_INFO(category, std::string(buffer)); \
     } while(0)
 
 #define BS_WARN_F(category, format, ...) \
@@ -189,20 +221,27 @@ private:
         BS_ERROR(category, std::string(buffer)); \
     } while(0)
 
+#define BS_FATAL_F(category, format, ...) \
+    do { \
+        char buffer[512]; \
+        snprintf(buffer, sizeof(buffer), format, __VA_ARGS__); \
+        BS_FATAL(category, std::string(buffer)); \
+    } while(0)
+
 // Quick category shortcuts for common use
 namespace Log {
     inline void Core(LogLevel level, const std::string& message) {
         Logger::Instance().Log(level, LogCategory::CORE, message);
     }
-    
+
     inline void Renderer(LogLevel level, const std::string& message) {
         Logger::Instance().Log(level, LogCategory::RENDERER, message);
     }
-    
+
     inline void Physics(LogLevel level, const std::string& message) {
         Logger::Instance().Log(level, LogCategory::PHYSICS, message);
     }
-    
+
     inline void Editor(LogLevel level, const std::string& message) {
         Logger::Instance().Log(level, LogCategory::EDITOR, message);
     }

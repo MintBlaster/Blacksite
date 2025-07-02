@@ -95,6 +95,10 @@ bool InputSystem::IsF1JustPressed() const {
     return IsKeyJustPressed(GLFW_KEY_F1);
 }
 
+bool InputSystem::IsF5JustPressed() const {
+    return IsKeyJustPressed(GLFW_KEY_F5);
+}
+
 bool InputSystem::IsMouseButtonPressed(int button) const {
     if (!m_window) return false;
     return glfwGetMouseButton(m_window, button) == GLFW_PRESS;

@@ -3,8 +3,9 @@
 #include "blacksite/core/Entity.h"
 #include "Camera.h"
 #include "GeometryManager.h"
+#include "PostProcessManager.h"
 #include "RenderCommand.h"
-#include "ShaderManager.h"
+#include "ShaderSystem.h"
 
 namespace Blacksite {
 
@@ -35,6 +36,10 @@ class Renderer {
     void Submit(const RenderCommand& command);  // Queue up a draw command
     void Flush();                               // Execute all queued commands
 
+    void EnablePostProcessing(bool enable) { m_postProcessingEnabled = enable; }
+    bool IsPostProcessingEnabled() const { return m_postProcessingEnabled; }
+    PostProcessManager* GetPostProcessManager() { return m_postProcessManager.get(); }
+
     // Camera control
     void SetCamera(Camera* camera);
     Camera& GetCamera() { return *m_camera; }
@@ -42,6 +47,9 @@ class Renderer {
 
     // Window management
     void OnWindowResize(int width, int height);
+
+    // Shader system integration
+    void SetShaderSystem(ShaderSystem* shaderSystem);
 
     // Debug methods
     void DebugOpenGLState();
@@ -56,10 +64,13 @@ class Renderer {
     bool GetShowColliders() const { return m_showColliders; }
 
   private:
-    ShaderManager m_shaderManager;      // Manages our compiled shaders
-    GeometryManager m_geometryManager;  // Keeps track of our meshes
-    Camera* m_camera = nullptr;         // External camera (not owned)
-    Camera m_internalCamera;            // Fallback internal camera
+    ShaderSystem* m_shaderSystem = nullptr;  // Reference to engine's shader system
+    GeometryManager m_geometryManager;       // Keeps track of our meshes
+    Camera* m_camera = nullptr;              // External camera (not owned)
+    Camera m_internalCamera;                 // Fallback internal camera
+
+    std::unique_ptr<PostProcessManager> m_postProcessManager;
+    bool m_postProcessingEnabled = true;
 
     // Command queue for batched rendering
     std::vector<RenderCommand> m_renderQueue;
@@ -72,7 +83,7 @@ class Renderer {
     glm::vec3 m_lightPosition{2.0f, 4.0f, 2.0f};
 
     // Setup functions
-    void SetupDefaultShaders();   // Load our basic shaders
+    void SetupDefaultShaders();   // Verify required shaders are available
     void SetupDefaultGeometry();  // Create cube, sphere, plane
 
     void ExecuteRenderCommand(const RenderCommand& command);

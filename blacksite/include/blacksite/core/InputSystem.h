@@ -21,6 +21,7 @@ public:
     // Specific key queries used by Engine
     bool IsEscapePressed() const;
     bool IsF1JustPressed() const;
+    bool IsF5JustPressed() const;
 
     // Mouse queries
     bool IsMouseButtonPressed(int button) const;

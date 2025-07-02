@@ -1,355 +1,9 @@
+#include "blacksite/graphics/Renderer.h"
 #include <cstdlib>
 #include <glm/gtc/type_ptr.hpp>
-
 #include "blacksite/core/Logger.h"
-#include "blacksite/graphics/Renderer.h"
 
 namespace Blacksite {
-
-// Shader sources - keeping them here for now.
-
-const char* BASIC_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;      // Vertex position
-    layout (location = 1) in vec3 aNormal;   // Vertex normal
-
-    uniform mat4 uModel;      // Model matrix (object -> world)
-    uniform mat4 uView;       // View matrix (world -> camera)
-    uniform mat4 uProjection; // Projection matrix (camera -> screen)
-
-    out vec3 FragPos;   // World space position for lighting
-    out vec3 Normal;    // World space normal for lighting
-
-    void main()
-    {
-        // Transform vertex to world space for lighting calculations
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-
-        // Transform normal to world space (properly handling non-uniform scaling)
-        Normal = mat3(transpose(inverse(uModel))) * aNormal;
-
-        // Final vertex position in clip space
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
-    }
-)";
-
-const char* BASIC_FRAGMENT_SHADER = R"(
-    #version 330 core
-    in vec3 FragPos;    // World space position from vertex shader
-    in vec3 Normal;     // World space normal from vertex shader
-
-    out vec4 FragColor; // Final pixel color
-
-    uniform vec3 uColor;    // Object color
-    uniform vec3 uLightPos; // Light position in world space
-    uniform vec3 uViewPos;  // Camera position in world space
-
-    void main()
-    {
-        // Basic Phong lighting model - not fancy but gets the job done
-        vec3 lightColor = vec3(1.0);  // White light
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(uLightPos - FragPos);
-
-        // Ambient lighting - so objects aren't completely black
-        float ambientStrength = 0.3;
-        vec3 ambient = ambientStrength * lightColor;
-
-        // Diffuse lighting - the main lighting component
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * lightColor;
-
-        // Combine ambient and diffuse (no specular because we're keeping it simple)
-        vec3 result = (ambient + diffuse) * uColor;
-        FragColor = vec4(result, 1.0);
-    }
-)";
-
-// Rainbow animated shader
-const char* RAINBOW_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uProjection;
-    uniform float uTime;
-
-    out vec3 FragPos;
-    out vec3 Normal;
-    out float Time;
-
-    void main()
-    {
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-        Normal = mat3(transpose(inverse(uModel))) * aNormal;
-        Time = uTime;
-
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
-    }
-)";
-
-const char* RAINBOW_FRAGMENT_SHADER = R"(
-    #version 330 core
-    in vec3 FragPos;
-    in vec3 Normal;
-    in float Time;
-
-    out vec4 FragColor;
-
-    uniform vec3 uLightPos;
-    uniform vec3 uViewPos;
-
-    vec3 hsv2rgb(vec3 c) {
-        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-    }
-
-    void main()
-    {
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(uLightPos - FragPos);
-
-        float hue = fract(Time * 0.5 + FragPos.x * 0.1 + FragPos.y * 0.1);
-        vec3 rainbowColor = hsv2rgb(vec3(hue, 0.8, 1.0));
-
-        float ambientStrength = 0.3;
-        vec3 ambient = ambientStrength * vec3(1.0);
-
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * vec3(1.0);
-
-        vec3 result = (ambient + diffuse) * rainbowColor;
-        FragColor = vec4(result, 1.0);
-    }
-)";
-
-// Pulsing glow shader
-const char* GLOW_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uProjection;
-    uniform float uTime;
-
-    out vec3 FragPos;
-    out vec3 Normal;
-    out float Time;
-
-    void main()
-    {
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-        Normal = mat3(transpose(inverse(uModel))) * aNormal;
-        Time = uTime;
-
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
-    }
-)";
-
-const char* GLOW_FRAGMENT_SHADER = R"(
-    #version 330 core
-    in vec3 FragPos;
-    in vec3 Normal;
-    in float Time;
-
-    out vec4 FragColor;
-
-    uniform vec3 uColor;
-    uniform vec3 uLightPos;
-    uniform vec3 uViewPos;
-
-    void main()
-    {
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(uLightPos - FragPos);
-        vec3 viewDir = normalize(uViewPos - FragPos);
-
-        // Pulsing glow effect
-        float pulse = sin(Time * 3.0) * 0.5 + 0.5;
-        float glow = pow(pulse, 2.0) * 2.0;
-
-        // Enhanced lighting with glow
-        float ambientStrength = 0.4 + glow * 0.3;
-        vec3 ambient = ambientStrength * uColor;
-
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * uColor;
-
-        // Add specular highlight
-        vec3 reflectDir = reflect(-lightDir, norm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-        vec3 specular = spec * vec3(1.0) * glow;
-
-        vec3 result = ambient + diffuse + specular;
-        FragColor = vec4(result, 1.0);
-    }
-)";
-
-// Holographic shader
-const char* HOLO_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uProjection;
-    uniform float uTime;
-
-    out vec3 FragPos;
-    out vec3 Normal;
-    out float Time;
-    out vec3 WorldPos;
-
-    void main()
-    {
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-        Normal = mat3(transpose(inverse(uModel))) * aNormal;
-        Time = uTime;
-        WorldPos = aPos;
-
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
-    }
-)";
-
-const char* HOLO_FRAGMENT_SHADER = R"(
-    #version 330 core
-    in vec3 FragPos;
-    in vec3 Normal;
-    in float Time;
-    in vec3 WorldPos;
-
-    out vec4 FragColor;
-
-    uniform vec3 uColor;
-    uniform vec3 uLightPos;
-    uniform vec3 uViewPos;
-
-    void main()
-    {
-        vec3 norm = normalize(Normal);
-        vec3 viewDir = normalize(uViewPos - FragPos);
-
-        // Holographic interference pattern
-        float interference = sin(WorldPos.y * 20.0 + Time * 2.0) * 0.5 + 0.5;
-        interference *= sin(WorldPos.x * 15.0 + Time * 1.5) * 0.5 + 0.5;
-
-        // Fresnel effect for holographic look
-        float fresnel = 1.0 - max(dot(norm, viewDir), 0.0);
-        fresnel = pow(fresnel, 2.0);
-
-        // Combine effects
-        vec3 holoColor = mix(uColor * 0.3, uColor * 2.0, interference);
-        holoColor = mix(holoColor, vec3(0.0, 1.0, 1.0), fresnel * 0.5);
-
-        // Add transparency based on interference
-        float alpha = 0.7 + interference * 0.3;
-
-        FragColor = vec4(holoColor, alpha);
-    }
-)";
-
-// Wireframe shader
-const char* WIREFRAME_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uProjection;
-
-    void main()
-    {
-        gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
-    }
-)";
-
-const char* WIREFRAME_FRAGMENT_SHADER = R"(
-    #version 330 core
-    out vec4 FragColor;
-
-    uniform vec3 uColor;
-
-    void main()
-    {
-        FragColor = vec4(uColor, 1.0);
-    }
-)";
-
-
-// Plasma shader
-const char* PLASMA_VERTEX_SHADER = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-
-    uniform mat4 uModel;
-    uniform mat4 uView;
-    uniform mat4 uProjection;
-    uniform float uTime;
-
-    out vec3 FragPos;
-    out vec3 Normal;
-    out float Time;
-    out vec3 LocalPos;
-
-    void main()
-    {
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-        Normal = mat3(transpose(inverse(uModel))) * aNormal;
-        Time = uTime;
-        LocalPos = aPos;
-
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
-    }
-)";
-
-const char* PLASMA_FRAGMENT_SHADER = R"(
-    #version 330 core
-    in vec3 FragPos;
-    in vec3 Normal;
-    in float Time;
-    in vec3 LocalPos;
-
-    out vec4 FragColor;
-
-    uniform vec3 uLightPos;
-    uniform vec3 uViewPos;
-
-    void main()
-    {
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(uLightPos - FragPos);
-
-        // Plasma effect
-        float plasma = sin(LocalPos.x * 4.0 + Time);
-        plasma += sin(LocalPos.y * 3.0 + Time * 1.5);
-        plasma += sin((LocalPos.x + LocalPos.y) * 2.0 + Time * 2.0);
-        plasma += sin(sqrt(LocalPos.x * LocalPos.x + LocalPos.y * LocalPos.y) * 5.0 + Time * 0.5);
-        plasma = plasma / 4.0;
-
-        // Convert to color
-        vec3 plasmaColor;
-        plasmaColor.r = sin(plasma * 3.14159 + Time) * 0.5 + 0.5;
-        plasmaColor.g = sin(plasma * 3.14159 + Time + 2.0) * 0.5 + 0.5;
-        plasmaColor.b = sin(plasma * 3.14159 + Time + 4.0) * 0.5 + 0.5;
-
-        // Basic lighting
-        float ambientStrength = 0.4;
-        vec3 ambient = ambientStrength * plasmaColor;
-
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * plasmaColor;
-
-        vec3 result = ambient + diffuse;
-        FragColor = vec4(result, 1.0);
-    }
-)";
 
 Renderer::Renderer() = default;
 
@@ -379,27 +33,42 @@ bool Renderer::Initialize(int width, int height) {
     SetupDefaultShaders();
     SetupDefaultGeometry();
 
+    // Initialize post-processing
+    m_postProcessManager = std::make_unique<PostProcessManager>();
+    if (!m_postProcessManager->Initialize(width, height, m_shaderSystem)) {
+        BS_ERROR(LogCategory::RENDERER, "Failed to initialize post-processing!");
+        return false;
+    }
+
     BS_INFO(LogCategory::RENDERER, "Renderer initialized successfully");
     return true;
 }
 
 void Renderer::Shutdown() {
     // Clean up all our GPU resources
-    m_shaderManager.Cleanup();
+    // Note: ShaderSystem is owned by Engine, so we don't clean it up here
     m_geometryManager.Cleanup();
 
     BS_INFO(LogCategory::RENDERER, "Renderer shut down cleanly");
 }
 
 void Renderer::BeginFrame() {
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (m_postProcessingEnabled) {
+        m_postProcessManager->BeginFrame();
+    } else {
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
     m_renderQueue.clear();
 }
 
 void Renderer::EndFrame() {
     // Execute all queued render commands
     Flush();
+
+    if (m_postProcessingEnabled) {
+        m_postProcessManager->EndFrame();
+    }
 }
 
 // Default shader versions (use basic shader)
@@ -472,6 +141,11 @@ void Renderer::OnWindowResize(int width, int height) {
         m_camera->SetAspectRatio((float)width / height);
     }
 
+    // Update post process
+    if (m_postProcessManager) {
+            m_postProcessManager->OnWindowResize(width, height);
+        }
+
     BS_DEBUG_F(LogCategory::RENDERER, "Renderer resized to %dx%d", width, height);
 }
 
@@ -479,23 +153,38 @@ void Renderer::SetCamera(Camera* camera) {
     m_camera = camera;
 }
 
+void Renderer::SetShaderSystem(ShaderSystem* shaderSystem) {
+    m_shaderSystem = shaderSystem;
+}
+
 void Renderer::SetupDefaultShaders() {
-    bool success = true;
-
-    // Load all our cool shaders
-    success &= m_shaderManager.LoadShader("basic", BASIC_VERTEX_SHADER, BASIC_FRAGMENT_SHADER);
-    success &= m_shaderManager.LoadShader("rainbow", RAINBOW_VERTEX_SHADER, RAINBOW_FRAGMENT_SHADER);
-    success &= m_shaderManager.LoadShader("glow", GLOW_VERTEX_SHADER, GLOW_FRAGMENT_SHADER);
-    success &= m_shaderManager.LoadShader("holo", HOLO_VERTEX_SHADER, HOLO_FRAGMENT_SHADER);
-    success &= m_shaderManager.LoadShader("wireframe", WIREFRAME_VERTEX_SHADER, WIREFRAME_FRAGMENT_SHADER);
-    success &= m_shaderManager.LoadShader("plasma", PLASMA_VERTEX_SHADER, PLASMA_FRAGMENT_SHADER);
-
-    if (!success) {
-        BS_FATAL(LogCategory::RENDERER, "Failed to load one or more shaders - everything will be broken!");
+    if (!m_shaderSystem) {
+        BS_FATAL(LogCategory::RENDERER, "ShaderSystem not set! Call SetShaderSystem() first!");
         std::exit(EXIT_FAILURE);
     }
 
-    BS_INFO(LogCategory::RENDERER, "All shaders loaded successfully (basic, rainbow, glow, holo, wireframe, plasma)");
+    // Shaders are now loaded by ShaderSystem during engine initialization
+    // Just verify they're available
+    std::vector<std::string> requiredShaders = {"basic", "unlit", "wireframe", "debug"};
+
+    for (const auto& shaderName : requiredShaders) {
+        if (!m_shaderSystem->HasShader(shaderName)) {
+            BS_FATAL_F(LogCategory::RENDERER, "Required shader not available: %s", shaderName.c_str());
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
+    BS_INFO(LogCategory::RENDERER, "All required shaders are available");
+
+    // List available shaders for debugging
+    auto availableShaders = m_shaderSystem->GetAvailableShaders();
+    std::string shaderList;
+    for (const auto& name : availableShaders) {
+        if (!shaderList.empty())
+            shaderList += ", ";
+        shaderList += name;
+    }
+    BS_DEBUG_F(LogCategory::RENDERER, "Available shaders: %s", shaderList.c_str());
 }
 
 void Renderer::SetupDefaultGeometry() {
@@ -515,8 +204,8 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
         return;
     }
 
-    // Use the specified shader
-    if (!m_shaderManager.UseShader(command.shaderName)) {
+    // Use the specified shader through ShaderSystem
+    if (!m_shaderSystem->GetShaderManager().UseShader(command.shaderName)) {
         BS_ERROR_F(LogCategory::RENDERER, "Failed to use shader: %s", command.shaderName.c_str());
         return;
     }
@@ -532,14 +221,18 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     glm::mat4 view = m_camera->GetViewMatrix();
     glm::mat4 proj = m_camera->GetProjectionMatrix();
 
-    m_shaderManager.SetUniform("uModel", model);
-    m_shaderManager.SetUniform("uView", view);
-    m_shaderManager.SetUniform("uProjection", proj);
+    auto& shaderManager = m_shaderSystem->GetShaderManager();
+    shaderManager.SetUniform("uModel", model);
+    shaderManager.SetUniform("uView", view);
+    shaderManager.SetUniform("uProjection", proj);
 
     // Set up lighting uniforms
-    m_shaderManager.SetUniform("uLightPos", m_lightPosition);
-    m_shaderManager.SetUniform("uViewPos", m_camera->GetPosition());
-    m_shaderManager.SetUniform("uColor", command.color);
+    shaderManager.SetUniform("uLightPos", m_lightPosition);
+    shaderManager.SetUniform("uViewPos", m_camera->GetPosition());
+    shaderManager.SetUniform("uColor", command.color);
+
+    // Set texture uniforms if the shader supports them
+    shaderManager.SetUniform("uHasTexture", false);  // Default to no texture
 
     // DEBUG: Check OpenGL state before drawing
     GLenum error = glGetError();
@@ -615,7 +308,7 @@ void Renderer::DebugOpenGLState() {
 void Renderer::DebugShaderCompilation() {
     BS_INFO(LogCategory::RENDERER, "=== Shader Debug ===");
 
-    if (!m_shaderManager.UseShader("basic")) {
+    if (!m_shaderSystem->GetShaderManager().UseShader("basic")) {
         BS_ERROR(LogCategory::RENDERER, "Cannot use basic shader!");
         return;
     }
@@ -732,7 +425,6 @@ void Renderer::DebugMatrices() {
               mvp[0][3]);
 }
 
-
 void Renderer::DrawColliders(const std::vector<Entity>& entities) {
     if (!m_showColliders)
         return;
@@ -751,7 +443,6 @@ void Renderer::DrawColliders(const std::vector<Entity>& entities) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_CULL_FACE);
     glLineWidth(1.0f);
-
 }
 
 void Renderer::DrawEntityCollider(const Entity& entity) {

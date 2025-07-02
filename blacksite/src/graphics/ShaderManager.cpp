@@ -1,15 +1,68 @@
 #include <GL/glew.h>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <blacksite/graphics/ShaderManager.h>
 #include <blacksite/core/Logger.h>
+#include <blacksite/graphics/ShaderManager.h>
 #include <GL/glext.h>
+#include "blacksite/graphics/shaders/ShaderLibrary.h"
 
 namespace Blacksite {
 
 ShaderManager::~ShaderManager() {
     Cleanup();
 }
+
+bool ShaderManager::LoadShaderFromLibrary(const std::string& libraryName) {
+    const ShaderSource* shaderSource = ShaderLibrary::GetShader(libraryName);
+    if (!shaderSource) {
+        BS_ERROR_F(LogCategory::RENDERER, "Shader '%s' not found in library", libraryName.c_str());
+        return false;
+    }
+
+    bool success = LoadShader(libraryName, shaderSource->vertexSource, shaderSource->fragmentSource);
+    if (success) {
+        BS_DEBUG_F(LogCategory::RENDERER, "Loaded shader '%s' from library: %s",
+                   libraryName.c_str(), shaderSource->description.c_str());
+    }
+
+    return success;
+}
+
+void ShaderManager::SetUniform(const std::string& name, int value) {
+    if (m_currentProgram == 0) return;
+
+    int location = glGetUniformLocation(m_currentProgram, name.c_str());
+    if (location != -1) {
+        glUniform1i(location, value);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, bool value) {
+    SetUniform(name, static_cast<int>(value));
+}
+
+bool ShaderManager::HasShader(const std::string& name) const {
+    return m_shaderPrograms.find(name) != m_shaderPrograms.end();
+}
+
+std::string ShaderManager::GetCurrentShaderName() const {
+    return m_currentShaderName;
+}
+
+// Update the UseShader method to track current shader name:
+bool ShaderManager::UseShader(const std::string& name) {
+    auto it = m_shaderPrograms.find(name);
+    if (it != m_shaderPrograms.end()) {
+        m_currentProgram = it->second;
+        m_currentShaderName = name;
+        glUseProgram(m_currentProgram);
+        return true;
+    } else {
+        BS_ERROR_F(LogCategory::RENDERER, "Shader not found: %s (did you forget to load it?)", name.c_str());
+        return false;
+    }
+}
+
 
 bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource, const char* fragmentSource) {
     // Create vertex shader
@@ -48,18 +101,6 @@ bool ShaderManager::LoadShader(const std::string& name, const char* vertexSource
 
     BS_DEBUG_F(LogCategory::RENDERER, "Shader '%s' loaded successfully", name.c_str());
     return true;
-}
-
-bool ShaderManager::UseShader(const std::string& name) {
-    auto it = m_shaderPrograms.find(name);
-    if (it != m_shaderPrograms.end()) {
-        m_currentProgram = it->second;
-        glUseProgram(m_currentProgram);
-        return true;
-    } else {
-        BS_ERROR_F(LogCategory::RENDERER, "Shader not found: %s (did you forget to load it?)", name.c_str());
-        return false;
-    }
 }
 
 void ShaderManager::SetUniform(const std::string& name, const glm::mat4& matrix) {

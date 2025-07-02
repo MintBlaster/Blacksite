@@ -6,9 +6,8 @@ namespace BlacksiteEditor {
 
 // Forward declarations for panels
 class SceneHierarchyPanel : public EditorPanel {
-public:
-    SceneHierarchyPanel(Blacksite::Engine* engine, Editor* editor)
-        : m_engine(engine), m_editor(editor) {}
+  public:
+    SceneHierarchyPanel(Blacksite::Engine* engine, Editor* editor) : m_engine(engine), m_editor(editor) {}
 
     void Render() override {
         if (!ImGui::Begin("Scene Hierarchy", &m_visible)) {
@@ -78,7 +77,8 @@ public:
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Plane")) {
-            int id = activeScene->SpawnPlane(glm::vec3(0, -1, 0), glm::vec3(10, 1, 10), "basic", glm::vec3(0.5f, 0.5f, 0.5f));
+            int id = activeScene->SpawnPlane(glm::vec3(0, -1, 0), glm::vec3(10, 1, 10), "basic",
+                                             glm::vec3(0.5f, 0.5f, 0.5f));
             m_editor->SetSelectedEntity(id);
         }
 
@@ -91,20 +91,26 @@ public:
         const auto& entities = entitySystem->GetEntities();
         for (size_t i = 0; i < entities.size(); ++i) {
             const auto& entity = entities[i];
-            if (!entity.active) continue;
+            if (!entity.active)
+                continue;
 
             // Entity icon based on shape
             const char* icon = "?";
             switch (entity.shape) {
-                case Blacksite::Entity::CUBE: icon = "📦"; break;
-                case Blacksite::Entity::SPHERE: icon = "🔵"; break;
-                case Blacksite::Entity::PLANE: icon = "⬜"; break;
+                case Blacksite::Entity::CUBE:
+                    icon = "📦";
+                    break;
+                case Blacksite::Entity::SPHERE:
+                    icon = "🔵";
+                    break;
+                case Blacksite::Entity::PLANE:
+                    icon = "⬜";
+                    break;
             }
 
             // Entity name with physics indicator
             char label[64];
-            snprintf(label, sizeof(label), "%s Entity %zu %s",
-                    icon, i, entity.hasPhysics ? "(Dynamic)" : "(Static)");
+            snprintf(label, sizeof(label), "%s Entity %zu %s", icon, i, entity.hasPhysics ? "(Dynamic)" : "(Static)");
 
             bool isSelected = (m_editor->GetSelectedEntity() == (int)i);
             if (ImGui::Selectable(label, isSelected)) {
@@ -131,15 +137,14 @@ public:
 
     const char* GetName() const override { return "Scene Hierarchy"; }
 
-private:
+  private:
     Blacksite::Engine* m_engine;
     Editor* m_editor;
 };
 
 class InspectorPanel : public EditorPanel {
-public:
-    InspectorPanel(Blacksite::Engine* engine, Editor* editor)
-        : m_engine(engine), m_editor(editor) {}
+  public:
+    InspectorPanel(Blacksite::Engine* engine, Editor* editor) : m_engine(engine), m_editor(editor) {}
 
     void Render() override {
         if (!ImGui::Begin("Inspector", &m_visible)) {
@@ -236,16 +241,15 @@ public:
                         JPH::BodyID bodyID;
                         switch (entity->shape) {
                             case Blacksite::Entity::CUBE:
-                                bodyID = m_engine->GetPhysicsSystem()->CreateBoxBody(
-                                    entity->transform.position, entity->transform.scale, false);
+                                bodyID = m_engine->GetPhysicsSystem()->CreateBoxBody(entity->transform.position,
+                                                                                     entity->transform.scale, false);
                                 break;
                             case Blacksite::Entity::SPHERE:
                                 bodyID = m_engine->GetPhysicsSystem()->CreateSphereBody(
                                     entity->transform.position, entity->transform.scale.x, false);
                                 break;
                             case Blacksite::Entity::PLANE:
-                                bodyID = m_engine->GetPhysicsSystem()->CreatePlaneBody(
-                                    entity->transform.position);
+                                bodyID = m_engine->GetPhysicsSystem()->CreatePlaneBody(entity->transform.position);
                                 break;
                         }
                         entity->physicsBody = bodyID;
@@ -321,7 +325,8 @@ public:
                     // Body state info
                     ImGui::Separator();
                     ImGui::Text("Physics State:");
-                    ImGui::Text("Active: %s", m_engine->GetPhysicsSystem()->IsBodyActive(entity->physicsBody) ? "Yes" : "No");
+                    ImGui::Text("Active: %s",
+                                m_engine->GetPhysicsSystem()->IsBodyActive(entity->physicsBody) ? "Yes" : "No");
 
                     glm::vec3 physicsPos = m_engine->GetPhysicsSystem()->GetBodyPosition(entity->physicsBody);
                     ImGui::Text("Physics Pos: (%.2f, %.2f, %.2f)", physicsPos.x, physicsPos.y, physicsPos.z);
@@ -338,13 +343,13 @@ public:
 
     const char* GetName() const override { return "Inspector"; }
 
-private:
+  private:
     Blacksite::Engine* m_engine;
     Editor* m_editor;
 };
 
 class ViewportPanel : public EditorPanel {
-public:
+  public:
     ViewportPanel(Blacksite::Engine* engine) : m_engine(engine) {}
 
     void Render() override {
@@ -422,12 +427,12 @@ public:
 
     const char* GetName() const override { return "Viewport"; }
 
-private:
+  private:
     Blacksite::Engine* m_engine;
 };
 
 class ConsolePanel : public EditorPanel {
-public:
+  public:
     ConsolePanel(Blacksite::Engine* engine) : m_engine(engine) {
         m_logs.push_back("Blacksite Physics Editor initialized");
         m_logs.push_back("Physics-first engine with Scene System ready!");
@@ -468,7 +473,7 @@ public:
 
     const char* GetName() const override { return "Console"; }
 
-private:
+  private:
     void ProcessCommand(const std::string& command) {
         auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
 
@@ -567,7 +572,7 @@ private:
 };
 
 class PerformancePanel : public EditorPanel {
-public:
+  public:
     PerformancePanel(Blacksite::Engine* engine) : m_engine(engine) {}
 
     void Render() override {
@@ -578,8 +583,7 @@ public:
 
         ImGuiIO& io = ImGui::GetIO();
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                   1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
         // FPS graph
         static float values[90] = {};
@@ -587,8 +591,7 @@ public:
         values[values_offset] = io.Framerate;
         values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
 
-        ImGui::PlotLines("FPS", values, IM_ARRAYSIZE(values), values_offset,
-                        nullptr, 0.0f, 120.0f, ImVec2(0, 80));
+        ImGui::PlotLines("FPS", values, IM_ARRAYSIZE(values), values_offset, nullptr, 0.0f, 120.0f, ImVec2(0, 80));
 
         ImGui::Separator();
 
@@ -625,14 +628,147 @@ public:
         }
 
         ImGui::Separator();
-        ImGui::Text("Memory Usage: ~%.1f MB", 50.0f); // Placeholder - you could implement actual memory tracking
+        ImGui::Text("Memory Usage: ~%.1f MB", 50.0f);  // Placeholder - you could implement actual memory tracking
 
         ImGui::End();
     }
 
     const char* GetName() const override { return "Performance"; }
 
-private:
+  private:
+    Blacksite::Engine* m_engine;
+};
+
+class PostProcessPanel : public EditorPanel {
+  public:
+    PostProcessPanel(Blacksite::Engine* engine) : m_engine(engine) {}
+
+    void Render() override {
+        if (!ImGui::Begin("Post-Processing", &m_visible)) {
+            ImGui::End();
+            return;
+        }
+
+        auto* renderer = m_engine->GetRenderer();
+        if (!renderer || !renderer->GetPostProcessManager()) {
+            ImGui::Text("Post-processing not available");
+            ImGui::End();
+            return;
+        }
+
+        auto* postProcess = renderer->GetPostProcessManager();
+        auto& settings = postProcess->GetSettings();
+
+        // Master toggle
+        bool postProcessEnabled = renderer->IsPostProcessingEnabled();
+        if (ImGui::Checkbox("Enable Post-Processing", &postProcessEnabled)) {
+            renderer->EnablePostProcessing(postProcessEnabled);
+        }
+
+        if (!postProcessEnabled) {
+            ImGui::Text("Post-processing is disabled");
+            ImGui::End();
+            return;
+        }
+
+        ImGui::Separator();
+
+        // Tone Mapping Section
+        if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Enable Tone Mapping", &settings.enableToneMapping);
+
+            if (settings.enableToneMapping) {
+                ImGui::SliderFloat("Exposure", &settings.exposure, 0.1f, 3.0f, "%.2f");
+                ImGui::SliderFloat("Gamma", &settings.gamma, 1.0f, 3.0f, "%.2f");
+
+                // Quick presets
+                if (ImGui::Button("Dark")) {
+                    settings.exposure = 0.8f;
+                    settings.gamma = 2.2f;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Normal")) {
+                    settings.exposure = 1.2f;
+                    settings.gamma = 2.2f;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Bright")) {
+                    settings.exposure = 1.8f;
+                    settings.gamma = 2.0f;
+                }
+            }
+        }
+
+        // Bloom Section
+        if (ImGui::CollapsingHeader("Bloom", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Enable Bloom", &settings.enableBloom);
+
+            if (settings.enableBloom) {
+                ImGui::SliderFloat("Bloom Threshold", &settings.bloomThreshold, 0.1f, 2.0f, "%.2f");
+                ImGui::SliderFloat("Bloom Strength", &settings.bloomStrength, 0.0f, 2.0f, "%.2f");
+                ImGui::SliderInt("Blur Passes", &settings.bloomBlurPasses, 1, 10);
+
+                ImGui::Separator();
+                ImGui::Checkbox("Show Bloom Texture (Debug)", &settings.showBloomTexture);
+
+                // Quick presets
+                if (ImGui::Button("Subtle")) {
+                    settings.bloomThreshold = 1.2f;
+                    settings.bloomStrength = 0.3f;
+                    settings.bloomBlurPasses = 3;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Normal")) {
+                    settings.bloomThreshold = 0.8f;
+                    settings.bloomStrength = 0.8f;
+                    settings.bloomBlurPasses = 5;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Intense")) {
+                    settings.bloomThreshold = 0.5f;
+                    settings.bloomStrength = 1.5f;
+                    settings.bloomBlurPasses = 7;
+                }
+            }
+        }
+
+        // FXAA Section
+        if (ImGui::CollapsingHeader("Anti-Aliasing")) {
+            ImGui::Checkbox("Enable FXAA", &settings.enableFXAA);
+
+            if (settings.enableFXAA) {
+                ImGui::Text("FXAA helps smooth jagged edges");
+                ImGui::Text("Performance impact: Low");
+            }
+        }
+
+        // Performance Info
+        ImGui::Separator();
+        if (ImGui::CollapsingHeader("Performance Info")) {
+            ImGuiIO& io = ImGui::GetIO();
+            ImGui::Text("Frame Time: %.3f ms", 1000.0f / io.Framerate);
+            ImGui::Text("FPS: %.1f", io.Framerate);
+
+            // Estimate performance impact
+            int activeEffects = 0;
+            if (settings.enableToneMapping)
+                activeEffects++;
+            if (settings.enableBloom)
+                activeEffects += 2;  // Bloom is more expensive
+            if (settings.enableFXAA)
+                activeEffects++;
+
+            const char* perfLevel[] = {"Minimal", "Low", "Medium", "High", "Very High"};
+            int perfIndex = std::min(activeEffects, 4);
+            ImGui::Text("Performance Impact: %s", perfLevel[perfIndex]);
+        }
+
+        ImGui::End();
+    }
+
+    const char* GetName() const override { return "Post-Processing"; }
+
+  private:
     Blacksite::Engine* m_engine;
 };
 
@@ -657,7 +793,7 @@ bool Editor::Initialize(Blacksite::Engine* engine, GLFWwindow* window) {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    // Set theme
+    // Set hellish theme
     SetupTheme();
 
     // Initialize panels with proper engine integration
@@ -666,13 +802,15 @@ bool Editor::Initialize(Blacksite::Engine* engine, GLFWwindow* window) {
     AddPanel(std::make_unique<ViewportPanel>(engine));
     AddPanel(std::make_unique<ConsolePanel>(engine));
     AddPanel(std::make_unique<PerformancePanel>(engine));
+    AddPanel(std::make_unique<PostProcessPanel>(engine));
 
     std::cout << "Blacksite Physics Editor with Scene System initialized successfully" << std::endl;
     return true;
 }
 
 void Editor::Update(float deltaTime) {
-    if (!m_enabled) return;
+    if (!m_enabled)
+        return;
 
     HandleShortcuts();
 
@@ -689,7 +827,8 @@ void Editor::Update(float deltaTime) {
 }
 
 void Editor::Render() {
-    if (!m_enabled) return;
+    if (!m_enabled)
+        return;
 
     // Save current OpenGL state
     GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
@@ -713,8 +852,10 @@ void Editor::Render() {
         }
     }
 
-    if (m_showDemo) ImGui::ShowDemoWindow(&m_showDemo);
-    if (m_showMetrics) ImGui::ShowMetricsWindow(&m_showMetrics);
+    if (m_showDemo)
+        ImGui::ShowDemoWindow(&m_showDemo);
+    if (m_showMetrics)
+        ImGui::ShowMetricsWindow(&m_showMetrics);
 
     // Prepare for ImGui rendering
     ImGui::Render();
@@ -728,11 +869,15 @@ void Editor::Render() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     // Restore previous OpenGL state
-    if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
-    else glDisable(GL_DEPTH_TEST);
+    if (depthTestEnabled)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
 
-    if (blendEnabled) glEnable(GL_BLEND);
-    else glDisable(GL_BLEND);
+    if (blendEnabled)
+        glEnable(GL_BLEND);
+    else
+        glDisable(GL_BLEND);
 
     // Handle viewports
     ImGuiIO& io = ImGui::GetIO();
@@ -852,7 +997,8 @@ void Editor::RenderMainMenuBar() {
                     SetSelectedEntity(id);
                 }
                 if (ImGui::MenuItem("Spawn Static Plane")) {
-                    int id = activeScene->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(15, 1, 15), "basic", glm::vec3(0.3f, 0.3f, 0.3f));
+                    int id = activeScene->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(15, 1, 15), "basic",
+                                                     glm::vec3(0.3f, 0.3f, 0.3f));
                     // Make it static
                     Blacksite::Entity* entity = activeScene->GetEntitySystem()->GetEntityPtr(id);
                     if (entity && entity->hasPhysics) {
@@ -866,7 +1012,8 @@ void Editor::RenderMainMenuBar() {
                     for (size_t i = 0; i < entities.size(); ++i) {
                         const auto& entity = entities[i];
                         if (entity.hasPhysics) {
-                            m_engine->GetPhysicsSystem()->SetBodyPosition(entity.physicsBody, entity.transform.position);
+                            m_engine->GetPhysicsSystem()->SetBodyPosition(entity.physicsBody,
+                                                                          entity.transform.position);
                             m_engine->GetPhysicsSystem()->SetVelocity(entity.physicsBody, glm::vec3(0));
                             m_engine->GetPhysicsSystem()->SetAngularVelocity(entity.physicsBody, glm::vec3(0));
                         }
@@ -907,7 +1054,8 @@ void Editor::RenderDockSpace() {
         ImGui::SetNextWindowViewport(viewport->ID);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                        ImGuiWindowFlags_NoMove;
         window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
         if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
@@ -955,24 +1103,120 @@ void Editor::SetupTheme() {
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // Physics-themed dark style
-    style.WindowRounding = 5.0f;
-    style.FrameRounding = 3.0f;
-    style.GrabRounding = 3.0f;
-    style.ScrollbarRounding = 3.0f;
-    style.TabRounding = 3.0f;
+    // Smokey Black + Orangish-Red Accent theme
+    style.WindowRounding = 3.0f;
+    style.FrameRounding = 2.0f;
+    style.GrabRounding = 2.0f;
+    style.ScrollbarRounding = 2.0f;
+    style.TabRounding = 2.0f;
     style.WindowBorderSize = 1.0f;
-    style.FrameBorderSize = 0.0f;
+    style.FrameBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
 
+    // Clean rendering
+    style.AntiAliasedLines = true;
+    style.AntiAliasedLinesUseTex = true;
+    style.AntiAliasedFill = true;
+
+    // Professional spacing
+    style.WindowPadding = ImVec2(8, 8);
+    style.FramePadding = ImVec2(6, 4);
+    style.ItemSpacing = ImVec2(8, 5);
+    style.ItemInnerSpacing = ImVec2(5, 4);
+    style.IndentSpacing = 20.0f;
+    style.ScrollbarSize = 14.0f;
+    style.GrabMinSize = 12.0f;
+
+    // Smokey Black + Orangish-Red Palette
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.08f, 0.08f, 0.10f, 1.00f);
-    colors[ImGuiCol_Header] = ImVec4(0.20f, 0.40f, 0.80f, 0.31f);
-    colors[ImGuiCol_HeaderHovered] = ImVec4(0.20f, 0.40f, 0.80f, 0.80f);
-    colors[ImGuiCol_HeaderActive] = ImVec4(0.20f, 0.40f, 0.80f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.20f, 0.40f, 0.80f, 0.40f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.20f, 0.40f, 0.80f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.15f, 0.35f, 0.75f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.30f, 0.70f, 1.00f, 1.00f);
+
+    // Base: Smokey blacks and grays (no color)
+    colors[ImGuiCol_WindowBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.95f);        // Pure black
+    colors[ImGuiCol_ChildBg] = ImVec4(0.05f, 0.05f, 0.05f, 1.00f);         // Smokey black
+    colors[ImGuiCol_PopupBg] = ImVec4(0.01f, 0.01f, 0.01f, 0.98f);         // Deeper black
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);       // Charcoal
+
+    // Text: Pure white on black
+    colors[ImGuiCol_Text] = ImVec4(0.98f, 0.98f, 0.98f, 1.00f);            // Pure white
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.45f, 0.45f, 0.45f, 1.00f);    // Gray
+
+    // Input fields: Smokey grays (no color)
+    colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);         // Dark gray
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);  // Medium gray
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);   // Light gray
+
+    // Scrollbars: Gray base
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.45f, 0.45f, 0.45f, 1.00f);
+
+    // Tables: Clean grays
+    colors[ImGuiCol_TableHeaderBg] = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
+    colors[ImGuiCol_TableBorderStrong] = ImVec4(0.40f, 0.40f, 0.40f, 1.00f);
+    colors[ImGuiCol_TableBorderLight] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
+    colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.02f);
+
+    // ORANGISH-RED ACCENTS (different intensity levels)
+
+    // Level 1: Subtle (30% intensity) - Borders and separators
+    colors[ImGuiCol_Border] = ImVec4(0.30f, 0.12f, 0.06f, 0.70f);          // Subtle orangish-red
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.50f);
+    colors[ImGuiCol_Separator] = ImVec4(0.35f, 0.14f, 0.07f, 0.60f);
+    colors[ImGuiCol_SeparatorHovered] = ImVec4(0.50f, 0.20f, 0.10f, 0.80f);
+    colors[ImGuiCol_SeparatorActive] = ImVec4(0.65f, 0.26f, 0.13f, 1.00f);
+
+    // Level 2: Medium (50% intensity) - Headers and tabs
+    colors[ImGuiCol_Header] = ImVec4(0.50f, 0.20f, 0.10f, 0.70f);          // Medium orangish-red
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.60f, 0.24f, 0.12f, 0.85f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.70f, 0.28f, 0.14f, 1.00f);
+
+    colors[ImGuiCol_Tab] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);             // Gray base
+    colors[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.18f, 0.09f, 1.00f);      // Medium accent
+    colors[ImGuiCol_TabActive] = ImVec4(0.55f, 0.22f, 0.11f, 1.00f);
+    colors[ImGuiCol_TabUnfocused] = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.35f, 0.14f, 0.07f, 1.00f);
+
+    colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);         // Gray base
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.45f, 0.18f, 0.09f, 1.00f);   // Medium accent
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.05f, 0.05f, 0.05f, 0.80f);
+
+    // Level 3: Strong (70% intensity) - Buttons and interactive elements
+    colors[ImGuiCol_Button] = ImVec4(0.70f, 0.28f, 0.14f, 0.80f);          // Strong orangish-red
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.80f, 0.32f, 0.16f, 0.90f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.90f, 0.36f, 0.18f, 1.00f);
+
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.75f, 0.30f, 0.15f, 1.00f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.85f, 0.34f, 0.17f, 1.00f);
+
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.70f, 0.28f, 0.14f, 1.00f);
+
+    colors[ImGuiCol_ResizeGrip] = ImVec4(0.65f, 0.26f, 0.13f, 0.60f);
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.75f, 0.30f, 0.15f, 0.80f);
+    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.85f, 0.34f, 0.17f, 1.00f);
+
+    // Level 4: Bright (90% intensity) - Check marks and highlights
+    colors[ImGuiCol_CheckMark] = ImVec4(0.90f, 0.36f, 0.18f, 1.00f);       // Bright orangish-red
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.85f, 0.34f, 0.17f, 0.35f);
+
+    colors[ImGuiCol_DragDropTarget] = ImVec4(0.95f, 0.38f, 0.19f, 0.80f);
+    colors[ImGuiCol_NavHighlight] = ImVec4(0.90f, 0.36f, 0.18f, 1.00f);
+
+    // Docking and plots
+    colors[ImGuiCol_DockingPreview] = ImVec4(0.80f, 0.32f, 0.16f, 0.50f);
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.02f, 0.02f, 0.02f, 1.00f);
+
+    colors[ImGuiCol_PlotLines] = ImVec4(0.85f, 0.34f, 0.17f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.95f, 0.38f, 0.19f, 1.00f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.75f, 0.30f, 0.15f, 1.00f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.85f, 0.34f, 0.17f, 1.00f);
+
+    // Modal and navigation
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.85f);
 }
 
-} // namespace BlacksiteEditor
+
+}  // namespace BlacksiteEditor

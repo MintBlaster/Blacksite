@@ -24,7 +24,16 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
         return false;
     }
 
+    // Initialize shader system EARLY (before renderer)
+    m_shaderSystem = std::make_unique<ShaderSystem>();
+    if (!m_shaderSystem->Initialize("assets/shaders/")) {
+        BS_ERROR(LogCategory::CORE, "Failed to initialize shader system!");
+        return false;
+    }
+
     m_renderer = std::make_unique<Renderer>();
+    // Connect renderer to shader system
+    m_renderer->SetShaderSystem(m_shaderSystem.get());
     if (!m_renderer->Initialize(width, height)) {
         BS_ERROR(LogCategory::CORE, "Failed to initialize renderer!");
         return false;
@@ -53,13 +62,21 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
     m_renderer->DebugGeometry();
     m_renderer->DebugMatrices();
 
+    // Log shader system status
+    auto availableShaders = m_shaderSystem->GetAvailableShaders();
+    auto builtInShaders = m_shaderSystem->GetBuiltInShaders();
+    auto userShaders = m_shaderSystem->GetUserShaders();
+
+    BS_INFO_F(LogCategory::CORE, "Shader System: %zu total shaders (%zu built-in, %zu user)",
+              availableShaders.size(), builtInShaders.size(), userShaders.size());
+
     m_initialized = true;
     BS_INFO(LogCategory::CORE, "Blacksite Engine initialized successfully");
     BS_INFO_F(LogCategory::CORE, "Build: %s %s", __DATE__, __TIME__);
     return true;
 }
 
-int Blacksite::Engine::Run() {
+int Engine::Run() {
     if (!m_initialized) {
         BS_ERROR(LogCategory::CORE, "Engine not initialized - call Initialize() first!");
         return -1;
@@ -87,13 +104,20 @@ int Blacksite::Engine::Run() {
     return 0;
 }
 
-void Blacksite::Engine::HandleInput() {
+void Engine::HandleInput() {
     m_inputSystem->Update();
 
     // Handle engine-level inputs
     if (m_inputSystem->IsEscapePressed()) {
         m_running = false;
         BS_INFO(LogCategory::CORE, "Engine shutdown requested via ESC key");
+    }
+
+    // Add shader hot-reload toggle
+    if (m_inputSystem->IsF5JustPressed()) {
+        BS_INFO(LogCategory::CORE, "F5 pressed - toggling shader hot reloading");
+        bool currentState = m_shaderSystem->GetHotReloadEnabled();
+        m_shaderSystem->EnableHotReloading(!currentState);
     }
 
     // Future: Handle other global inputs like F1 for editor toggle
@@ -103,6 +127,9 @@ void Blacksite::Engine::HandleInput() {
 }
 
 void Engine::Update(float deltaTime) {
+    // Update shader system first (for hot reloading)
+    m_shaderSystem->Update();
+
     // Update physics system
     m_physicsSystem->Update(deltaTime);
 
@@ -129,13 +156,14 @@ void Engine::Shutdown() {
     if (!m_initialized)
         return;
 
-    BS_INFO(LogCategory::CORE, "Shutting down Blacksite Engine (refactored with scenes)...");
+    BS_INFO(LogCategory::CORE, "Shutting down Blacksite Engine...");
 
     // Shutdown systems in reverse order
     m_sceneSystem.reset();
     m_inputSystem.reset();
     m_renderer.reset();
     m_physicsSystem.reset();
+    m_shaderSystem.reset(); // Add shader system shutdown
     m_window.reset();
 
     m_running = false;

@@ -4,6 +4,7 @@
 #include "blacksite/core/InputSystem.h"
 #include "blacksite/core/Window.h"
 #include "blacksite/graphics/Renderer.h"
+#include "blacksite/graphics/ShaderSystem.h"
 #include "blacksite/physics/PhysicsSystem.h"
 #include "blacksite/scene/SceneSystem.h"
 
@@ -71,6 +72,8 @@ class Engine {
     PhysicsSystem* GetPhysicsSystem() { return m_physicsSystem.get(); }
     Renderer* GetRenderer() { return m_renderer.get(); }
     GLFWwindow* GetGLFWWindow() const { return m_window->GetGLFWindow(); }
+    ShaderSystem& GetShaderSystem() { return *m_shaderSystem; }
+    const ShaderSystem& GetShaderSystem() const { return *m_shaderSystem; }
 
   private:
     // --- Core Systems ---
@@ -79,6 +82,7 @@ class Engine {
     std::unique_ptr<PhysicsSystem> m_physicsSystem;
     std::unique_ptr<InputSystem> m_inputSystem;
     std::unique_ptr<SceneSystem> m_sceneSystem;
+    std::unique_ptr<ShaderSystem> m_shaderSystem;
 
     // --- Engine State ---
     UpdateCallback m_updateCallback;

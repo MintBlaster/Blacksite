@@ -8,12 +8,14 @@
 namespace Blacksite {
 
 class ShaderManager {
-  public:
+public:
     ShaderManager() = default;
     ~ShaderManager();
 
-    // Load and compile shader programs
-    // If this return false -> check shader syntax
+    // Load shader from the shader library
+    bool LoadShaderFromLibrary(const std::string& libraryName);
+
+    // Load and compile shader programs (existing method)
     bool LoadShader(const std::string& name, const char* vertexSource, const char* fragmentSource);
     bool UseShader(const std::string& name);
 
@@ -21,18 +23,26 @@ class ShaderManager {
     void SetUniform(const std::string& name, const glm::mat4& matrix);
     void SetUniform(const std::string& name, const glm::vec3& vector);
     void SetUniform(const std::string& name, float value);
+    void SetUniform(const std::string& name, int value);
+    void SetUniform(const std::string& name, bool value);
+
+    // Utility methods
+    bool HasShader(const std::string& name) const;
+    std::string GetCurrentShaderName() const;
 
     void Cleanup();
 
-  private:
+private:
     // Collection of compiled shaders
     std::unordered_map<std::string, unsigned int> m_shaderPrograms;
 
     // Currently active program
     unsigned int m_currentProgram = 0;
+    std::string m_currentShaderName;
 
     // Shader compilation
     bool CompileShader(unsigned int shader, const char* source);
     bool LinkProgram(unsigned int program);
 };
-}  // namespace Blacksite
+
+} // namespace Blacksite
