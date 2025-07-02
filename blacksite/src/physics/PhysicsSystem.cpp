@@ -502,7 +502,7 @@ void PhysicsSystem::AddDefaultColliderToEntity(Entity& entity) {
             defaultCollider.type = ColliderType::Box;
             // Jolt Physics requires that all half extents must be >= convex radius (which is typically around 0.05).
             // Y would become too small on .1f.
-            defaultCollider.size = glm::vec3(1.0f, .2f, 1.0f);
+            defaultCollider.size = glm::vec3(1.0f, 1.f, 1.0f);
             break;
     }
 

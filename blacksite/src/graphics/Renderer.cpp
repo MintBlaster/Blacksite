@@ -33,6 +33,8 @@ bool Renderer::Initialize(int width, int height) {
     SetupDefaultShaders();
     SetupDefaultGeometry();
 
+    m_postProcessingEnabled = true;
+
     // Initialize post-processing
     m_postProcessManager = std::make_unique<PostProcessManager>();
     if (!m_postProcessManager->Initialize(width, height, m_shaderSystem)) {
@@ -143,8 +145,8 @@ void Renderer::OnWindowResize(int width, int height) {
 
     // Update post process
     if (m_postProcessManager) {
-            m_postProcessManager->OnWindowResize(width, height);
-        }
+        m_postProcessManager->OnWindowResize(width, height);
+    }
 
     BS_DEBUG_F(LogCategory::RENDERER, "Renderer resized to %dx%d", width, height);
 }
@@ -163,14 +165,17 @@ void Renderer::SetupDefaultShaders() {
         std::exit(EXIT_FAILURE);
     }
 
-    // Shaders are now loaded by ShaderSystem during engine initialization
     // Just verify they're available
     std::vector<std::string> requiredShaders = {"basic", "unlit", "wireframe", "debug"};
 
-    for (const auto& shaderName : requiredShaders) {
+    // Load post-processing shaders
+    std::vector<std::string> postProcessShaders = {"postprocess", "blur", "bloom", "fxaa"};
+
+    for (const auto& shaderName : postProcessShaders) {
         if (!m_shaderSystem->HasShader(shaderName)) {
-            BS_FATAL_F(LogCategory::RENDERER, "Required shader not available: %s", shaderName.c_str());
-            std::exit(EXIT_FAILURE);
+            if (!m_shaderSystem->GetShaderManager().LoadShaderFromLibrary(shaderName)) {
+                BS_ERROR_F(LogCategory::RENDERER, "Failed to load post-process shader: %s", shaderName.c_str());
+            }
         }
     }
 
@@ -204,7 +209,7 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
         return;
     }
 
-    // Use the specified shader through ShaderSystem
+    // Use the correct shader for 3D rendering
     if (!m_shaderSystem->GetShaderManager().UseShader(command.shaderName)) {
         BS_ERROR_F(LogCategory::RENDERER, "Failed to use shader: %s", command.shaderName.c_str());
         return;
@@ -222,6 +227,8 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     glm::mat4 proj = m_camera->GetProjectionMatrix();
 
     auto& shaderManager = m_shaderSystem->GetShaderManager();
+
+    // *** FIX: Actually set the MVP matrices! ***
     shaderManager.SetUniform("uModel", model);
     shaderManager.SetUniform("uView", view);
     shaderManager.SetUniform("uProjection", proj);
@@ -234,12 +241,6 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     // Set texture uniforms if the shader supports them
     shaderManager.SetUniform("uHasTexture", false);  // Default to no texture
 
-    // DEBUG: Check OpenGL state before drawing
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        BS_ERROR_F(LogCategory::RENDERER, "OpenGL error before draw: %d", error);
-    }
-
     // Actually draw the mesh
     glBindVertexArray(mesh->VAO);
     if (mesh->useIndices) {
@@ -249,10 +250,10 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     }
     glBindVertexArray(0);
 
-    // DEBUG: Check OpenGL state after drawing
-    error = glGetError();
+    // Check for errors after drawing
+    GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        BS_ERROR_F(LogCategory::RENDERER, "OpenGL error after draw: %d", error);
+        BS_ERROR_F(LogCategory::RENDERER, "OpenGL error after drawing %s: %d", command.meshName.c_str(), error);
     }
 }
 

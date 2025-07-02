@@ -23,14 +23,10 @@ void CameraSystem::Update(float deltaTime) {
 
 void CameraSystem::SetPosition(const glm::vec3& position) {
     m_camera.SetPosition(position);
-    BS_DEBUG_F(LogCategory::CORE, "CameraSystem: Position set to (%.1f, %.1f, %.1f)",
-               position.x, position.y, position.z);
 }
 
 void CameraSystem::SetTarget(const glm::vec3& target) {
     m_camera.SetTarget(target);
-    BS_DEBUG_F(LogCategory::CORE, "CameraSystem: Target set to (%.1f, %.1f, %.1f)",
-               target.x, target.y, target.z);
 }
 
 void CameraSystem::SetAspectRatio(float aspect) {

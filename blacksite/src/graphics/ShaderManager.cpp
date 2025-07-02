@@ -41,6 +41,79 @@ void ShaderManager::SetUniform(const std::string& name, bool value) {
     SetUniform(name, static_cast<int>(value));
 }
 
+void ShaderManager::SetUniform(const std::string& name, const glm::mat3& matrix) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniformMatrix3fv(location, 1, GL_FALSE, &matrix[0][0]);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, const glm::vec4& vector) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform4f(location, vector.x, vector.y, vector.z, vector.w);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, const glm::vec2& vector) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform2f(location, vector.x, vector.y);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, float x, float y) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform2f(location, x, y);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, float x, float y, float z) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform3f(location, x, y, z);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, float x, float y, float z, float w) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform4f(location, x, y, z, w);
+    }
+}
+
+void ShaderManager::SetUniform(const std::string& name, int x, int y) {
+    GLint location = GetUniformLocationSafe(name);
+    if (location != -1) {
+        glUniform2i(location, x, y);
+    }
+}
+
+GLint ShaderManager::GetUniformLocation(const std::string& name) const {
+    if (m_currentProgram == 0) {
+        return -1;
+    }
+    return glGetUniformLocation(m_currentProgram, name.c_str());
+}
+
+GLint ShaderManager::GetUniformLocationSafe(const std::string& name) const {
+    if (m_currentProgram == 0) {
+        // Log error: No shader program active
+        BS_ERROR(LogCategory::RENDERER, "No shader program active");
+        return -1;
+    }
+
+    GLint location = glGetUniformLocation(m_currentProgram, name.c_str());
+    if (location == -1) {
+        BS_WARN(LogCategory::RENDERER, "Uniform not found.");
+        //(this might be OK if uniform is optimized out)
+    }
+
+    return location;
+}
+
+
 bool ShaderManager::HasShader(const std::string& name) const {
     return m_shaderPrograms.find(name) != m_shaderPrograms.end();
 }

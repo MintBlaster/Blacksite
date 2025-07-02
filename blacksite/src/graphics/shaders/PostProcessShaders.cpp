@@ -26,20 +26,30 @@ const char* POSTPROCESS_FRAGMENT_SHADER = R"(
     uniform sampler2D uScreenTexture;
     uniform float uGamma;
     uniform float uExposure;
+    uniform bool uExtractBrightPixels;
+    uniform float uBloomThreshold;
 
     void main()
     {
         vec3 color = texture(uScreenTexture, TexCoord).rgb;
 
-        // Tone mapping
-        color = vec3(1.0) - exp(-color * uExposure);
-
-        // Gamma correction
-        color = pow(color, vec3(1.0 / uGamma));
-
-        FragColor = vec4(color, 1.0);
+        if (uExtractBrightPixels) {
+            // Extract bright pixels for bloom
+            float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
+            if (brightness > uBloomThreshold) {
+                FragColor = vec4(color, 1.0);
+            } else {
+                FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+        } else {
+            // Regular tone mapping and gamma correction
+            color = vec3(1.0) - exp(-color * uExposure);
+            color = pow(color, vec3(1.0 / uGamma));
+            FragColor = vec4(color, 1.0);
+        }
     }
 )";
+
 
 const char* BLUR_VERTEX_SHADER = R"(
     #version 330 core
@@ -99,13 +109,23 @@ const char* BLOOM_FRAGMENT_SHADER = R"(
     uniform sampler2D uScene;
     uniform sampler2D uBloomBlur;
     uniform float uBloomStrength;
+    uniform float uExposure;
+    uniform float uGamma;
 
     void main()
     {
         vec3 sceneColor = texture(uScene, TexCoord).rgb;
         vec3 bloomColor = texture(uBloomBlur, TexCoord).rgb;
 
+        // Combine scene and bloom
         vec3 result = sceneColor + bloomColor * uBloomStrength;
+
+        // Apply tone mapping
+        result = vec3(1.0) - exp(-result * uExposure);
+
+        // Apply gamma correction
+        result = pow(result, vec3(1.0 / uGamma));
+
         FragColor = vec4(result, 1.0);
     }
 )";
