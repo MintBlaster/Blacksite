@@ -36,18 +36,16 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
         return false;
     }
 
-    // Initialize new systems
-    m_entitySystem = std::make_unique<EntitySystem>();
-    m_entitySystem->SetPhysicsSystem(m_physicsSystem.get());
-
-    m_cameraSystem = std::make_unique<CameraSystem>();
-    m_cameraSystem->Initialize(static_cast<float>(width) / height);
-
     m_inputSystem = std::make_unique<InputSystem>();
     m_inputSystem->Initialize(m_window->GetGLFWindow());
 
-    // Connect camera to renderer
-    m_renderer->SetCamera(&m_cameraSystem->GetCamera());
+    // Initialize SceneSystem
+    m_sceneSystem = std::make_unique<SceneSystem>();
+    float aspectRatio = static_cast<float>(width) / height;
+    if (!m_sceneSystem->Initialize(m_physicsSystem.get(), m_renderer.get(), aspectRatio)) {
+        BS_ERROR(LogCategory::CORE, "Failed to initialize scene system!");
+        return false;
+    }
 
     BS_INFO(LogCategory::CORE, "Running renderer diagnostics...");
     m_renderer->DebugOpenGLState();
@@ -61,7 +59,7 @@ bool Engine::Initialize(int width, int height, const std::string& title) {
     return true;
 }
 
-int Engine::Run() {
+int Blacksite::Engine::Run() {
     if (!m_initialized) {
         BS_ERROR(LogCategory::CORE, "Engine not initialized - call Initialize() first!");
         return -1;
@@ -69,7 +67,7 @@ int Engine::Run() {
 
     m_running = true;
     auto lastTime = std::chrono::high_resolution_clock::now();
-    BS_INFO(LogCategory::CORE, "Starting main loop (refactored engine)...");
+    BS_INFO(LogCategory::CORE, "Starting main loop (refactored engine with scene system)...");
 
     while (m_running && !m_window->ShouldClose()) {
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -79,19 +77,17 @@ int Engine::Run() {
         m_window->PollEvents();
         HandleInput();
 
-        // Render 3D scene FIRST
-        Render();
         Update(deltaTime);
+        Render();
 
         m_window->SwapBuffers();
-
     }
 
     BS_INFO(LogCategory::CORE, "Main loop ended");
     return 0;
 }
 
-void Engine::HandleInput() {
+void Blacksite::Engine::HandleInput() {
     m_inputSystem->Update();
 
     // Handle engine-level inputs
@@ -107,10 +103,11 @@ void Engine::HandleInput() {
 }
 
 void Engine::Update(float deltaTime) {
-    // Update all systems
-    m_cameraSystem->Update(deltaTime);
+    // Update physics system
     m_physicsSystem->Update(deltaTime);
-    SyncPhysicsToGraphics();
+
+    // Update scene system (which updates the active scene)
+    m_sceneSystem->Update(deltaTime);
 
     // Call user update callback
     if (m_updateCallback) {
@@ -118,106 +115,25 @@ void Engine::Update(float deltaTime) {
     }
 }
 
-void Engine::UpdateSystems(float deltaTime) {
-    // Move logic from your private Update() method
-    m_cameraSystem->Update(deltaTime);
-    m_physicsSystem->Update(deltaTime);
-    SyncPhysicsToGraphics();
-
-    // Call user update callback if set
-    if (m_updateCallback) {
-        m_updateCallback(*this, deltaTime);
-    }
-}
-
-void Engine::RenderScene() {
-    if (!m_renderer) {
-        BS_ERROR(LogCategory::RENDERER, "No renderer available!");
-        return;
-    }
-
-    m_renderer->BeginFrame();
-
-    int drawnCount = 0;
-    for (const auto& entity : m_entitySystem->GetEntities()) {
-        if (!entity.active)
-            continue;
-
-        switch (entity.shape) {
-            case Entity::CUBE:
-                m_renderer->DrawCube(entity.transform, entity.shader, entity.color);
-                break;
-            case Entity::SPHERE:
-                m_renderer->DrawSphere(entity.transform, entity.shader, entity.color);
-                break;
-            case Entity::PLANE:
-                m_renderer->DrawPlane(entity.transform, entity.shader, entity.color);
-                break;
-            default:
-                BS_ERROR(LogCategory::RENDERER, "Unknown entity shape");
-                break;
-        }
-        drawnCount++;
-    }
-
-    m_renderer->EndFrame();
-}
-
-void Engine::SyncPhysicsToGraphics() {
-    // Sync physics positions back to transform positions
-    for (auto& entity : m_entitySystem->GetEntities()) {
-        if (entity.hasPhysics && entity.active) {
-            entity.transform.position = m_physicsSystem->GetBodyPosition(entity.physicsBody);
-            entity.transform.rotation = m_physicsSystem->GetBodyRotation(entity.physicsBody);
-        }
-    }
-}
-
 void Engine::Render() {
-    if (!m_renderer) {
-        BS_ERROR(LogCategory::RENDERER, "No renderer available!");
+    if (!m_renderer || !m_sceneSystem) {
+        BS_ERROR(LogCategory::RENDERER, "Missing renderer or scene system!");
         return;
     }
 
-    m_renderer->BeginFrame();
-
-    int drawnCount = 0;
-    for (const auto& entity : m_entitySystem->GetEntities()) {
-        if (!entity.active)
-            continue;
-
-        switch (entity.shape) {
-            case Entity::CUBE:
-                m_renderer->DrawCube(entity.transform, entity.shader, entity.color);
-                break;
-            case Entity::SPHERE:
-                m_renderer->DrawSphere(entity.transform, entity.shader, entity.color);
-                break;
-            case Entity::PLANE:
-                m_renderer->DrawPlane(entity.transform, entity.shader, entity.color);
-                break;
-            default:
-                BS_ERROR(LogCategory::RENDERER, "Unknown entity shape");
-                break;
-        }
-        drawnCount++;
-    }
-
-    m_renderer->EndFrame();
+    // SceneSystem handles all rendering including BeginFrame/EndFrame
+    m_sceneSystem->Render();
 }
-
 
 void Engine::Shutdown() {
     if (!m_initialized)
         return;
 
-    BS_INFO(LogCategory::CORE, "Shutting down Blacksite Engine (refactored)...");
+    BS_INFO(LogCategory::CORE, "Shutting down Blacksite Engine (refactored with scenes)...");
 
     // Shutdown systems in reverse order
+    m_sceneSystem.reset();
     m_inputSystem.reset();
-    m_cameraSystem.reset();
-    m_entitySystem.reset();
-
     m_renderer.reset();
     m_physicsSystem.reset();
     m_window.reset();
@@ -232,55 +148,76 @@ void Engine::SetUpdateCallback(UpdateCallback callback) {
     BS_DEBUG(LogCategory::CORE, "Update callback registered");
 }
 
-// Convenience methods that delegate to systems
+// --- Convenience Entity API (delegates to SceneSystem) ---
 int Engine::SpawnCube(const glm::vec3& position) {
-    return m_entitySystem->SpawnCube(position);
+    return m_sceneSystem ? m_sceneSystem->SpawnCube(position) : -1;
 }
 
 int Engine::SpawnSphere(const glm::vec3& position) {
-    return m_entitySystem->SpawnSphere(position);
+    return m_sceneSystem ? m_sceneSystem->SpawnSphere(position) : -1;
 }
 
 int Engine::SpawnPlane(const glm::vec3& position, const glm::vec3& size) {
-    return m_entitySystem->SpawnPlane(position, size);
+    return m_sceneSystem ? m_sceneSystem->SpawnPlane(position, size) : -1;
 }
 
-// Shader specific
-
 int Engine::SpawnCube(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
-    return m_entitySystem->SpawnCube(position, shader, color);
+    Scene* activeScene = GetActiveScene();
+    return activeScene ? activeScene->SpawnCube(position, shader, color) : -1;
 }
 
 int Engine::SpawnSphere(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
-    return m_entitySystem->SpawnSphere(position, shader, color);
+    Scene* activeScene = GetActiveScene();
+    return activeScene ? activeScene->SpawnSphere(position, shader, color) : -1;
 }
 
-int Engine::SpawnPlane(const glm::vec3& position, const glm::vec3& size, const std::string& shader, const glm::vec3& color) {
-    return m_entitySystem->SpawnPlane(position, size, shader, color);
+int Engine::SpawnPlane(const glm::vec3& position, const glm::vec3& size, const std::string& shader,
+                       const glm::vec3& color) {
+    Scene* activeScene = GetActiveScene();
+    return activeScene ? activeScene->SpawnPlane(position, size, shader, color) : -1;
 }
 
-int Engine::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
-    return m_entitySystem->SpawnEntity(shape, position, shader, color);
+int Engine::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader,
+                        const glm::vec3& color) {
+    Scene* activeScene = GetActiveScene();
+    return activeScene ? activeScene->SpawnEntity(shape, position, shader, color) : -1;
 }
 
 EntityHandle Engine::GetEntity(int id) {
-    return EntityHandle(m_entitySystem.get(), m_physicsSystem.get(), id);
+    return m_sceneSystem ? m_sceneSystem->GetEntity(id) : EntityHandle(nullptr, nullptr, -1);
 }
 
+// --- Convenience Camera API (delegates to SceneSystem) ---
 void Engine::SetCameraPosition(const glm::vec3& position) {
-    m_cameraSystem->SetPosition(position);
+    if (m_sceneSystem)
+        m_sceneSystem->SetCameraPosition(position);
 }
 
 void Engine::SetCameraTarget(const glm::vec3& target) {
-    m_cameraSystem->SetTarget(target);
+    if (m_sceneSystem)
+        m_sceneSystem->SetCameraTarget(target);
 }
 
 glm::vec3 Engine::GetCameraPosition() const {
-    return m_cameraSystem->GetPosition();
+    Scene* activeScene = const_cast<Engine*>(this)->GetActiveScene();
+    return activeScene ? activeScene->GetCameraPosition() : glm::vec3(0.0f);
 }
 
 glm::vec3 Engine::GetCameraTarget() const {
-    return m_cameraSystem->GetTarget();
+    Scene* activeScene = const_cast<Engine*>(this)->GetActiveScene();
+    return activeScene ? activeScene->GetCameraTarget() : glm::vec3(0.0f);
+}
+
+void Engine::UpdateFrame(float deltaTime) {
+    if (!m_initialized)
+        return;
+    Update(deltaTime);
+}
+
+void Engine::RenderFrame() {
+    if (!m_initialized)
+        return;
+    Render();
 }
 
 }  // namespace Blacksite

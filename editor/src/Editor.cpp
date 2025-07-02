@@ -16,28 +16,79 @@ public:
             return;
         }
 
-        // Entity creation buttons
+        // Scene management section
+        if (ImGui::CollapsingHeader("Scene Management", ImGuiTreeNodeFlags_DefaultOpen)) {
+            auto* sceneSystem = m_engine->GetSceneSystem();
+            auto* activeScene = sceneSystem->GetActiveScene();
+
+            // Current scene info
+            if (activeScene) {
+                ImGui::Text("Active Scene: %s", activeScene->GetName().c_str());
+            } else {
+                ImGui::Text("No active scene");
+            }
+
+            // Scene list
+            auto sceneNames = sceneSystem->GetSceneNames();
+            if (ImGui::BeginCombo("Switch Scene", activeScene ? activeScene->GetName().c_str() : "None")) {
+                for (const auto& name : sceneNames) {
+                    bool isSelected = (activeScene && activeScene->GetName() == name);
+                    if (ImGui::Selectable(name.c_str(), isSelected)) {
+                        sceneSystem->SwitchToScene(name);
+                    }
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            // Create new scene
+            static char newSceneName[64] = "NewScene";
+            ImGui::InputText("Scene Name", newSceneName, sizeof(newSceneName));
+            ImGui::SameLine();
+            if (ImGui::Button("Create Scene")) {
+                auto newScene = sceneSystem->CreateScene(newSceneName);
+                if (newScene) {
+                    sceneSystem->SwitchToScene(newSceneName);
+                    // Clear the input
+                    strcpy(newSceneName, "NewScene");
+                }
+            }
+        }
+
+        ImGui::Separator();
+
+        // Entity creation buttons (only if we have an active scene)
+        auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+        if (!activeScene) {
+            ImGui::Text("Create or switch to a scene to add entities");
+            ImGui::End();
+            return;
+        }
+
         if (ImGui::Button("Add Cube")) {
-            int id = m_engine->SpawnCube(glm::vec3(0, 2, 0), "basic", glm::vec3(1, 0, 0));
+            int id = activeScene->SpawnCube(glm::vec3(0, 2, 0), "basic", glm::vec3(1, 0, 0));
             m_editor->SetSelectedEntity(id);
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Sphere")) {
-            int id = m_engine->SpawnSphere(glm::vec3(2, 2, 0), "basic", glm::vec3(0, 1, 0));
+            int id = activeScene->SpawnSphere(glm::vec3(2, 2, 0), "basic", glm::vec3(0, 1, 0));
             m_editor->SetSelectedEntity(id);
         }
         ImGui::SameLine();
         if (ImGui::Button("Add Plane")) {
-            int id = m_engine->SpawnPlane(glm::vec3(0, -1, 0), glm::vec3(10, 1, 10), "basic", glm::vec3(0.5f, 0.5f, 0.5f));
+            int id = activeScene->SpawnPlane(glm::vec3(0, -1, 0), glm::vec3(10, 1, 10), "basic", glm::vec3(0.5f, 0.5f, 0.5f));
             m_editor->SetSelectedEntity(id);
         }
 
         ImGui::Separator();
 
-        // Real entity list from EntitySystem
-        ImGui::Text("Entities (%zu):", m_engine->GetEntitySystem()->GetEntities().size());
+        // Real entity list from active scene's EntitySystem
+        auto* entitySystem = activeScene->GetEntitySystem();
+        ImGui::Text("Entities (%zu):", entitySystem->GetEntities().size());
 
-        const auto& entities = m_engine->GetEntitySystem()->GetEntities();
+        const auto& entities = entitySystem->GetEntities();
         for (size_t i = 0; i < entities.size(); ++i) {
             const auto& entity = entities[i];
             if (!entity.active) continue;
@@ -63,10 +114,10 @@ public:
             // Right-click context menu
             if (ImGui::BeginPopupContextItem()) {
                 if (ImGui::MenuItem("Duplicate")) {
-                    m_engine->GetEntitySystem()->DuplicateEntity((int)i);
+                    entitySystem->DuplicateEntity((int)i);
                 }
                 if (ImGui::MenuItem("Delete")) {
-                    m_engine->GetEntitySystem()->RemoveEntity((int)i);
+                    entitySystem->RemoveEntity((int)i);
                     if (m_editor->GetSelectedEntity() == (int)i) {
                         m_editor->SetSelectedEntity(-1);
                     }
@@ -96,9 +147,17 @@ public:
             return;
         }
 
+        auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+        if (!activeScene) {
+            ImGui::Text("No active scene");
+            ImGui::End();
+            return;
+        }
+
         int selectedEntity = m_editor->GetSelectedEntity();
         if (selectedEntity >= 0) {
-            Blacksite::Entity* entity = m_engine->GetEntitySystem()->GetEntityPtr(selectedEntity);
+            auto* entitySystem = activeScene->GetEntitySystem();
+            Blacksite::Entity* entity = entitySystem->GetEntityPtr(selectedEntity);
             if (!entity) {
                 ImGui::Text("Invalid entity selected");
                 ImGui::End();
@@ -106,6 +165,7 @@ public:
             }
 
             ImGui::Text("Entity ID: %d", selectedEntity);
+            ImGui::Text("Scene: %s", activeScene->GetName().c_str());
             ImGui::Separator();
 
             // Transform Component
@@ -141,7 +201,7 @@ public:
                 glm::vec3 color = entity->color;
                 if (ImGui::ColorEdit3("Color", &color.x)) {
                     entity->color = color;
-                    m_engine->GetEntitySystem()->SetEntityColor(selectedEntity, color);
+                    entitySystem->SetEntityColor(selectedEntity, color);
                 }
 
                 // Shape display (read-only for now)
@@ -163,7 +223,7 @@ public:
 
                 if (ImGui::Combo("Shader", &currentShader, shaders, IM_ARRAYSIZE(shaders))) {
                     entity->shader = shaders[currentShader];
-                    m_engine->GetEntitySystem()->SetEntityShader(selectedEntity, shaders[currentShader]);
+                    entitySystem->SetEntityShader(selectedEntity, shaders[currentShader]);
                 }
             }
 
@@ -293,47 +353,55 @@ public:
             return;
         }
 
+        auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+        if (!activeScene) {
+            ImGui::Text("No active scene");
+            ImGui::End();
+            return;
+        }
+
         ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
         // Camera controls
         if (ImGui::CollapsingHeader("Camera Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-            glm::vec3 cameraPos = m_engine->GetCameraPosition();
+            glm::vec3 cameraPos = activeScene->GetCameraPosition();
             float pos[3] = {cameraPos.x, cameraPos.y, cameraPos.z};
             if (ImGui::DragFloat3("Position", pos, 0.1f)) {
-                m_engine->SetCameraPosition(glm::vec3(pos[0], pos[1], pos[2]));
+                activeScene->SetCameraPosition(glm::vec3(pos[0], pos[1], pos[2]));
             }
 
-            glm::vec3 cameraTarget = m_engine->GetCameraTarget();
+            glm::vec3 cameraTarget = activeScene->GetCameraTarget();
             float target[3] = {cameraTarget.x, cameraTarget.y, cameraTarget.z};
             if (ImGui::DragFloat3("Target", target, 0.1f)) {
-                m_engine->SetCameraTarget(glm::vec3(target[0], target[1], target[2]));
+                activeScene->SetCameraTarget(glm::vec3(target[0], target[1], target[2]));
             }
 
             // Quick camera presets
             if (ImGui::Button("Top View")) {
-                m_engine->SetCameraPosition(glm::vec3(0, 10, 0));
-                m_engine->SetCameraTarget(glm::vec3(0, 0, 0));
+                activeScene->SetCameraPosition(glm::vec3(0, 10, 0));
+                activeScene->SetCameraTarget(glm::vec3(0, 0, 0));
             }
             ImGui::SameLine();
             if (ImGui::Button("Side View")) {
-                m_engine->SetCameraPosition(glm::vec3(10, 2, 0));
-                m_engine->SetCameraTarget(glm::vec3(0, 0, 0));
+                activeScene->SetCameraPosition(glm::vec3(10, 2, 0));
+                activeScene->SetCameraTarget(glm::vec3(0, 0, 0));
             }
             ImGui::SameLine();
             if (ImGui::Button("Reset")) {
-                m_engine->SetCameraPosition(glm::vec3(0, 5, 10));
-                m_engine->SetCameraTarget(glm::vec3(0, 0, 0));
+                activeScene->SetCameraPosition(glm::vec3(0, 5, 10));
+                activeScene->SetCameraTarget(glm::vec3(0, 0, 0));
             }
         }
 
         ImGui::Separator();
         ImGui::Text("Viewport Size: %.0fx%.0f", viewportSize.x, viewportSize.y);
+        ImGui::Text("Scene: %s", activeScene->GetName().c_str());
 
         // Physics simulation controls
         if (ImGui::CollapsingHeader("Physics Controls")) {
             if (ImGui::Button("Reset All Physics")) {
                 // Reset all dynamic bodies to their original positions
-                const auto& entities = m_engine->GetEntitySystem()->GetEntities();
+                const auto& entities = activeScene->GetEntitySystem()->GetEntities();
                 for (size_t i = 0; i < entities.size(); ++i) {
                     const auto& entity = entities[i];
                     if (entity.hasPhysics && !m_engine->GetPhysicsSystem()->IsBodyStatic(entity.physicsBody)) {
@@ -362,7 +430,7 @@ class ConsolePanel : public EditorPanel {
 public:
     ConsolePanel(Blacksite::Engine* engine) : m_engine(engine) {
         m_logs.push_back("Blacksite Physics Editor initialized");
-        m_logs.push_back("Physics-first engine ready!");
+        m_logs.push_back("Physics-first engine with Scene System ready!");
         m_logs.push_back("Type 'help' for available commands");
     }
 
@@ -402,6 +470,8 @@ public:
 
 private:
     void ProcessCommand(const std::string& command) {
+        auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+
         if (command == "clear") {
             m_logs.clear();
         } else if (command == "help") {
@@ -411,17 +481,20 @@ private:
             m_logs.push_back("  spawn cube/sphere/plane - Spawn entities");
             m_logs.push_back("  physics info - Show physics stats");
             m_logs.push_back("  reset physics - Reset all physics bodies");
-        } else if (command == "spawn cube") {
-            int id = m_engine->SpawnCube(glm::vec3(0, 5, 0), "basic", glm::vec3(1, 0, 0));
-            m_logs.push_back("Spawned cube with ID: " + std::to_string(id));
-        } else if (command == "spawn sphere") {
-            int id = m_engine->SpawnSphere(glm::vec3(0, 5, 0), "basic", glm::vec3(0, 1, 0));
-            m_logs.push_back("Spawned sphere with ID: " + std::to_string(id));
-        } else if (command == "spawn plane") {
-            int id = m_engine->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(10, 1, 10), "basic", glm::vec3(0.5f));
-            m_logs.push_back("Spawned plane with ID: " + std::to_string(id));
-        } else if (command == "physics info") {
-            const auto& entities = m_engine->GetEntitySystem()->GetEntities();
+            m_logs.push_back("  scene info - Show scene information");
+            m_logs.push_back("  scene list - List all scenes");
+            m_logs.push_back("  scene switch <name> - Switch to scene");
+        } else if (command == "spawn cube" && activeScene) {
+            int id = activeScene->SpawnCube(glm::vec3(0, 5, 0), "basic", glm::vec3(1, 0, 0));
+            m_logs.push_back("Spawned cube with ID: " + std::to_string(id) + " in scene: " + activeScene->GetName());
+        } else if (command == "spawn sphere" && activeScene) {
+            int id = activeScene->SpawnSphere(glm::vec3(0, 5, 0), "basic", glm::vec3(0, 1, 0));
+            m_logs.push_back("Spawned sphere with ID: " + std::to_string(id) + " in scene: " + activeScene->GetName());
+        } else if (command == "spawn plane" && activeScene) {
+            int id = activeScene->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(10, 1, 10), "basic", glm::vec3(0.5f));
+            m_logs.push_back("Spawned plane with ID: " + std::to_string(id) + " in scene: " + activeScene->GetName());
+        } else if (command == "physics info" && activeScene) {
+            const auto& entities = activeScene->GetEntitySystem()->GetEntities();
             int physicsCount = 0;
             int staticCount = 0;
             int dynamicCount = 0;
@@ -437,14 +510,14 @@ private:
                 }
             }
 
-            m_logs.push_back("Physics Statistics:");
+            m_logs.push_back("Physics Statistics for scene '" + activeScene->GetName() + "':");
             m_logs.push_back("  Total entities: " + std::to_string(entities.size()));
             m_logs.push_back("  Physics bodies: " + std::to_string(physicsCount));
             m_logs.push_back("  Static bodies: " + std::to_string(staticCount));
             m_logs.push_back("  Dynamic bodies: " + std::to_string(dynamicCount));
-        } else if (command == "reset physics") {
-            // Reset all physics bodies
-            const auto& entities = m_engine->GetEntitySystem()->GetEntities();
+        } else if (command == "reset physics" && activeScene) {
+            // Reset all physics bodies in active scene
+            const auto& entities = activeScene->GetEntitySystem()->GetEntities();
             for (size_t i = 0; i < entities.size(); ++i) {
                 const auto& entity = entities[i];
                 if (entity.hasPhysics) {
@@ -453,7 +526,36 @@ private:
                     m_engine->GetPhysicsSystem()->SetAngularVelocity(entity.physicsBody, glm::vec3(0));
                 }
             }
-            m_logs.push_back("Reset all physics bodies");
+            m_logs.push_back("Reset all physics bodies in scene: " + activeScene->GetName());
+        } else if (command == "scene info") {
+            auto* sceneSystem = m_engine->GetSceneSystem();
+            if (activeScene) {
+                m_logs.push_back("Active Scene: " + activeScene->GetName());
+                m_logs.push_back("  Entities: " + std::to_string(activeScene->GetEntitySystem()->GetEntities().size()));
+            } else {
+                m_logs.push_back("No active scene");
+            }
+            m_logs.push_back("Total Scenes: " + std::to_string(sceneSystem->GetSceneCount()));
+        } else if (command == "scene list") {
+            auto sceneNames = m_engine->GetSceneSystem()->GetSceneNames();
+            m_logs.push_back("Available Scenes:");
+            for (const auto& name : sceneNames) {
+                std::string prefix = (activeScene && activeScene->GetName() == name) ? "* " : "  ";
+                m_logs.push_back(prefix + name);
+            }
+        } else if (command.substr(0, 12) == "scene switch") {
+            if (command.length() > 13) {
+                std::string sceneName = command.substr(13);
+                if (m_engine->GetSceneSystem()->SwitchToScene(sceneName)) {
+                    m_logs.push_back("Switched to scene: " + sceneName);
+                } else {
+                    m_logs.push_back("Failed to switch to scene: " + sceneName);
+                }
+            } else {
+                m_logs.push_back("Usage: scene switch <scene_name>");
+            }
+        } else if (!activeScene) {
+            m_logs.push_back("No active scene! Create or switch to a scene first.");
         } else {
             m_logs.push_back("Unknown command: " + command + " (type 'help' for commands)");
         }
@@ -490,27 +592,37 @@ public:
 
         ImGui::Separator();
 
-        // Entity and physics statistics
-        const auto& entities = m_engine->GetEntitySystem()->GetEntities();
-        int physicsCount = 0;
-        int staticCount = 0;
-        int dynamicCount = 0;
+        // Scene and entity statistics
+        auto* sceneSystem = m_engine->GetSceneSystem();
+        auto* activeScene = sceneSystem->GetActiveScene();
 
-        for (const auto& entity : entities) {
-            if (entity.hasPhysics) {
-                physicsCount++;
-                if (m_engine->GetPhysicsSystem()->IsBodyStatic(entity.physicsBody)) {
-                    staticCount++;
-                } else {
-                    dynamicCount++;
+        ImGui::Text("Scenes: %zu", sceneSystem->GetSceneCount());
+        if (activeScene) {
+            ImGui::Text("Active Scene: %s", activeScene->GetName().c_str());
+
+            const auto& entities = activeScene->GetEntitySystem()->GetEntities();
+            int physicsCount = 0;
+            int staticCount = 0;
+            int dynamicCount = 0;
+
+            for (const auto& entity : entities) {
+                if (entity.hasPhysics) {
+                    physicsCount++;
+                    if (m_engine->GetPhysicsSystem()->IsBodyStatic(entity.physicsBody)) {
+                        staticCount++;
+                    } else {
+                        dynamicCount++;
+                    }
                 }
             }
-        }
 
-        ImGui::Text("Entities: %zu", entities.size());
-        ImGui::Text("Physics Bodies: %d", physicsCount);
-        ImGui::Text("  Static: %d", staticCount);
-        ImGui::Text("  Dynamic: %d", dynamicCount);
+            ImGui::Text("Entities: %zu", entities.size());
+            ImGui::Text("Physics Bodies: %d", physicsCount);
+            ImGui::Text("  Static: %d", staticCount);
+            ImGui::Text("  Dynamic: %d", dynamicCount);
+        } else {
+            ImGui::Text("No active scene");
+        }
 
         ImGui::Separator();
         ImGui::Text("Memory Usage: ~%.1f MB", 50.0f); // Placeholder - you could implement actual memory tracking
@@ -555,7 +667,7 @@ bool Editor::Initialize(Blacksite::Engine* engine, GLFWwindow* window) {
     AddPanel(std::make_unique<ConsolePanel>(engine));
     AddPanel(std::make_unique<PerformancePanel>(engine));
 
-    std::cout << "Blacksite Physics Editor initialized successfully" << std::endl;
+    std::cout << "Blacksite Physics Editor with Scene System initialized successfully" << std::endl;
     return true;
 }
 
@@ -565,8 +677,9 @@ void Editor::Update(float deltaTime) {
     HandleShortcuts();
 
     // Update selected entity's transform from physics if it has physics
-    if (m_selectedEntity >= 0) {
-        Blacksite::Entity* entity = m_engine->GetEntitySystem()->GetEntityPtr(m_selectedEntity);
+    auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+    if (activeScene && m_selectedEntity >= 0) {
+        Blacksite::Entity* entity = activeScene->GetEntitySystem()->GetEntityPtr(m_selectedEntity);
         if (entity && entity->hasPhysics) {
             // Sync transform from physics system
             entity->transform.position = m_engine->GetPhysicsSystem()->GetBodyPosition(entity->physicsBody);
@@ -656,13 +769,15 @@ void Editor::RenderMainMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New Scene", "Ctrl+N")) {
-                // Clear all entities
-                auto& entities = m_engine->GetEntitySystem()->GetEntities();
-                for (size_t i = entities.size(); i > 0; --i) {
-                    m_engine->GetEntitySystem()->RemoveEntity(i - 1);
+                // Create a new scene
+                static int sceneCounter = 1;
+                std::string sceneName = "Scene" + std::to_string(sceneCounter++);
+                auto newScene = m_engine->GetSceneSystem()->CreateScene(sceneName);
+                if (newScene) {
+                    m_engine->GetSceneSystem()->SwitchToScene(sceneName);
+                    SetSelectedEntity(-1);
+                    std::cout << "New Scene created: " << sceneName << std::endl;
                 }
-                SetSelectedEntity(-1);
-                std::cout << "New Scene created" << std::endl;
             }
             if (ImGui::MenuItem("Save Scene", "Ctrl+S")) {
                 std::cout << "Save Scene requested (not implemented)" << std::endl;
@@ -684,6 +799,38 @@ void Editor::RenderMainMenuBar() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Scene")) {
+            auto* sceneSystem = m_engine->GetSceneSystem();
+            auto sceneNames = sceneSystem->GetSceneNames();
+            auto* activeScene = sceneSystem->GetActiveScene();
+
+            for (const auto& name : sceneNames) {
+                bool isActive = (activeScene && activeScene->GetName() == name);
+                if (ImGui::MenuItem(name.c_str(), nullptr, isActive)) {
+                    if (!isActive) {
+                        sceneSystem->SwitchToScene(name);
+                        SetSelectedEntity(-1);
+                    }
+                }
+            }
+
+            if (!sceneNames.empty()) {
+                ImGui::Separator();
+            }
+
+            if (ImGui::MenuItem("Create New Scene")) {
+                static int sceneCounter = 1;
+                std::string sceneName = "Scene" + std::to_string(sceneCounter++);
+                auto newScene = sceneSystem->CreateScene(sceneName);
+                if (newScene) {
+                    sceneSystem->SwitchToScene(sceneName);
+                    SetSelectedEntity(-1);
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("View")) {
             for (auto& panel : m_panels) {
                 bool visible = panel->IsVisible();
@@ -698,38 +845,48 @@ void Editor::RenderMainMenuBar() {
         }
 
         if (ImGui::BeginMenu("Physics")) {
-            if (ImGui::MenuItem("Spawn Dynamic Cube")) {
-                int id = m_engine->SpawnCube(glm::vec3(0, 5, 0), "basic", glm::vec3(1, 0, 0));
-                SetSelectedEntity(id);
-            }
-            if (ImGui::MenuItem("Spawn Static Plane")) {
-                int id = m_engine->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(15, 1, 15), "basic", glm::vec3(0.3f, 0.3f, 0.3f));
-                // Make it static
-                Blacksite::Entity* entity = m_engine->GetEntitySystem()->GetEntityPtr(id);
-                if (entity && entity->hasPhysics) {
-                    m_engine->GetPhysicsSystem()->MakeBodyStatic(entity->physicsBody);
+            auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+            if (activeScene) {
+                if (ImGui::MenuItem("Spawn Dynamic Cube")) {
+                    int id = activeScene->SpawnCube(glm::vec3(0, 5, 0), "basic", glm::vec3(1, 0, 0));
+                    SetSelectedEntity(id);
                 }
-                SetSelectedEntity(id);
-            }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Reset All Physics")) {
-                const auto& entities = m_engine->GetEntitySystem()->GetEntities();
-                for (size_t i = 0; i < entities.size(); ++i) {
-                    const auto& entity = entities[i];
-                    if (entity.hasPhysics) {
-                        m_engine->GetPhysicsSystem()->SetBodyPosition(entity.physicsBody, entity.transform.position);
-                        m_engine->GetPhysicsSystem()->SetVelocity(entity.physicsBody, glm::vec3(0));
-                        m_engine->GetPhysicsSystem()->SetAngularVelocity(entity.physicsBody, glm::vec3(0));
+                if (ImGui::MenuItem("Spawn Static Plane")) {
+                    int id = activeScene->SpawnPlane(glm::vec3(0, -2, 0), glm::vec3(15, 1, 15), "basic", glm::vec3(0.3f, 0.3f, 0.3f));
+                    // Make it static
+                    Blacksite::Entity* entity = activeScene->GetEntitySystem()->GetEntityPtr(id);
+                    if (entity && entity->hasPhysics) {
+                        m_engine->GetPhysicsSystem()->MakeBodyStatic(entity->physicsBody);
+                    }
+                    SetSelectedEntity(id);
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Reset All Physics")) {
+                    const auto& entities = activeScene->GetEntitySystem()->GetEntities();
+                    for (size_t i = 0; i < entities.size(); ++i) {
+                        const auto& entity = entities[i];
+                        if (entity.hasPhysics) {
+                            m_engine->GetPhysicsSystem()->SetBodyPosition(entity.physicsBody, entity.transform.position);
+                            m_engine->GetPhysicsSystem()->SetVelocity(entity.physicsBody, glm::vec3(0));
+                            m_engine->GetPhysicsSystem()->SetAngularVelocity(entity.physicsBody, glm::vec3(0));
+                        }
                     }
                 }
+            } else {
+                ImGui::MenuItem("No active scene", nullptr, false, false);
             }
             ImGui::EndMenu();
         }
 
         if (ImGui::BeginMenu("Tools")) {
-            if (ImGui::MenuItem("Reset Camera")) {
-                m_engine->SetCameraPosition(glm::vec3(0, 5, 10));
-                m_engine->SetCameraTarget(glm::vec3(0, 0, 0));
+            auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+            if (activeScene) {
+                if (ImGui::MenuItem("Reset Camera")) {
+                    activeScene->SetCameraPosition(glm::vec3(0, 5, 10));
+                    activeScene->SetCameraTarget(glm::vec3(0, 0, 0));
+                }
+            } else {
+                ImGui::MenuItem("No active scene", nullptr, false, false);
             }
             ImGui::EndMenu();
         }
@@ -766,7 +923,7 @@ void Editor::RenderDockSpace() {
 
     ImGuiIO& io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("BlacksitePhysicsDockSpace");
+        ImGuiID dockspace_id = ImGui::GetID("BlacksitePhysicsSceneDockSpace");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
 
@@ -782,14 +939,15 @@ void Editor::HandleShortcuts() {
     }
 
     // Delete selected entity with Delete key
-    if (ImGui::IsKeyPressed(ImGuiKey_Delete) && m_selectedEntity >= 0) {
-        m_engine->GetEntitySystem()->RemoveEntity(m_selectedEntity);
+    auto* activeScene = m_engine->GetSceneSystem()->GetActiveScene();
+    if (activeScene && ImGui::IsKeyPressed(ImGuiKey_Delete) && m_selectedEntity >= 0) {
+        activeScene->GetEntitySystem()->RemoveEntity(m_selectedEntity);
         SetSelectedEntity(-1);
     }
 
     // Duplicate selected entity with Ctrl+D
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D) && m_selectedEntity >= 0) {
-        m_engine->GetEntitySystem()->DuplicateEntity(m_selectedEntity);
+    if (activeScene && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D) && m_selectedEntity >= 0) {
+        activeScene->GetEntitySystem()->DuplicateEntity(m_selectedEntity);
     }
 }
 

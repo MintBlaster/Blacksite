@@ -1,15 +1,11 @@
 #pragma once
-
-#include "blacksite/core/CameraSystem.h"
-#include "blacksite/core/EntityHandle.h"
-#include "blacksite/core/EntitySystem.h"
+#include <functional>
+#include <memory>
 #include "blacksite/core/InputSystem.h"
 #include "blacksite/core/Window.h"
 #include "blacksite/graphics/Renderer.h"
 #include "blacksite/physics/PhysicsSystem.h"
-
-#include <functional>
-#include <memory>
+#include "blacksite/scene/SceneSystem.h"
 
 namespace Blacksite {
 
@@ -28,7 +24,22 @@ class Engine {
     using UpdateCallback = std::function<void(Engine& engine, float deltaTime)>;
     void SetUpdateCallback(UpdateCallback callback);
 
-    // --- Convenience Entity API (delegates to EntitySystem) ---
+    // --- Scene Management ---
+    SceneSystem* GetSceneSystem() { return m_sceneSystem.get(); }
+
+    // --- Convenience Scene API (delegates to SceneSystem) ---
+    template <typename T = Scene>
+    std::shared_ptr<T> CreateScene(const std::string& name) {
+        return m_sceneSystem ? m_sceneSystem->CreateScene<T>(name) : nullptr;
+    }
+
+    bool SwitchToScene(const std::string& name) { return m_sceneSystem ? m_sceneSystem->SwitchToScene(name) : false; }
+
+    Scene* GetActiveScene() { return m_sceneSystem ? m_sceneSystem->GetActiveScene() : nullptr; }
+
+    Scene* GetScene(const std::string& name) { return m_sceneSystem ? m_sceneSystem->GetScene(name) : nullptr; }
+
+    // --- Convenience Entity API (delegates to active scene via SceneSystem) ---
     int SpawnCube(const glm::vec3& position);
     int SpawnSphere(const glm::vec3& position);
     int SpawnPlane(const glm::vec3& position, const glm::vec3& size);
@@ -45,44 +56,38 @@ class Engine {
 
     EntityHandle GetEntity(int id);
 
-    // --- Convenience Camera API (delegates to CameraSystem) ---
+    // --- Convenience Camera API (delegates to active scene via SceneSystem) ---
     void SetCameraPosition(const glm::vec3& position);
     void SetCameraTarget(const glm::vec3& target);
     glm::vec3 GetCameraPosition() const;
     glm::vec3 GetCameraTarget() const;
 
-    // --- System Access ---
-    EntitySystem* GetEntitySystem() { return m_entitySystem.get(); }
-    CameraSystem* GetCameraSystem() { return m_cameraSystem.get(); }
+    // Single frame update/render for external main loops.
+    void UpdateFrame(float deltaTime);
+    void RenderFrame();
+
+    // --- Core System Access ---
     InputSystem* GetInputSystem() { return m_inputSystem.get(); }
     PhysicsSystem* GetPhysicsSystem() { return m_physicsSystem.get(); }
     Renderer* GetRenderer() { return m_renderer.get(); }
     GLFWwindow* GetGLFWWindow() const { return m_window->GetGLFWindow(); }
-
-    using RenderCallback = std::function<void(Engine&)>;
-    void SetRenderCallback(RenderCallback callback) { m_renderCallback = callback; }
-
-    void UpdateSystems(float deltaTime);
-    void RenderScene();
 
   private:
     // --- Core Systems ---
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<PhysicsSystem> m_physicsSystem;
-    std::unique_ptr<EntitySystem> m_entitySystem;
-    std::unique_ptr<CameraSystem> m_cameraSystem;
     std::unique_ptr<InputSystem> m_inputSystem;
+    std::unique_ptr<SceneSystem> m_sceneSystem;
 
+    // --- Engine State ---
     UpdateCallback m_updateCallback;
     bool m_running = false;
     bool m_initialized = false;
-    RenderCallback m_renderCallback;
 
     // --- Internal Methods ---
     void Update(float deltaTime);
     void Render();
-    void SyncPhysicsToGraphics();
     void HandleInput();
 };
 
