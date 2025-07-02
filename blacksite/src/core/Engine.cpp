@@ -177,7 +177,7 @@ int Engine::SpawnPlane(const glm::vec3& position, const glm::vec3& size, const s
     return activeScene ? activeScene->SpawnPlane(position, size, shader, color) : -1;
 }
 
-int Engine::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader,
+int Engine::SpawnEntity(Entity::VisualShape shape, const glm::vec3& position, const std::string& shader,
                         const glm::vec3& color) {
     Scene* activeScene = GetActiveScene();
     return activeScene ? activeScene->SpawnEntity(shape, position, shader, color) : -1;

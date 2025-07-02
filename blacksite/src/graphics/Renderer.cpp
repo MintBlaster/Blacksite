@@ -65,7 +65,6 @@ const char* BASIC_FRAGMENT_SHADER = R"(
     }
 )";
 
-
 // Rainbow animated shader
 const char* RAINBOW_VERTEX_SHADER = R"(
     #version 330 core
@@ -259,41 +258,29 @@ const char* HOLO_FRAGMENT_SHADER = R"(
 const char* WIREFRAME_VERTEX_SHADER = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
 
     uniform mat4 uModel;
     uniform mat4 uView;
     uniform mat4 uProjection;
 
-    out vec3 FragPos;
-
     void main()
     {
-        FragPos = vec3(uModel * vec4(aPos, 1.0));
-        gl_Position = uProjection * uView * vec4(FragPos, 1.0);
+        gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
     }
 )";
 
 const char* WIREFRAME_FRAGMENT_SHADER = R"(
     #version 330 core
-    in vec3 FragPos;
-
     out vec4 FragColor;
 
     uniform vec3 uColor;
-    uniform float uTime;
 
     void main()
     {
-        // Animated wireframe color
-        vec3 wireColor = uColor;
-        wireColor.r += sin(uTime * 2.0) * 0.3;
-        wireColor.g += cos(uTime * 1.5) * 0.3;
-        wireColor.b += sin(uTime * 2.5) * 0.3;
-
-        FragColor = vec4(wireColor, 1.0);
+        FragColor = vec4(uColor, 1.0);
     }
 )";
+
 
 // Plasma shader
 const char* PLASMA_VERTEX_SHADER = R"(
@@ -363,7 +350,6 @@ const char* PLASMA_FRAGMENT_SHADER = R"(
         FragColor = vec4(result, 1.0);
     }
 )";
-
 
 Renderer::Renderer() = default;
 
@@ -491,7 +477,6 @@ void Renderer::OnWindowResize(int width, int height) {
 
 void Renderer::SetCamera(Camera* camera) {
     m_camera = camera;
-    BS_DEBUG(LogCategory::RENDERER, "External camera set");
 }
 
 void Renderer::SetupDefaultShaders() {
@@ -566,10 +551,8 @@ void Renderer::ExecuteRenderCommand(const RenderCommand& command) {
     glBindVertexArray(mesh->VAO);
     if (mesh->useIndices) {
         glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-        BS_DEBUG_F(LogCategory::RENDERER, "Drew %d triangles with indices", mesh->indexCount / 3);
     } else {
         glDrawArrays(GL_TRIANGLES, 0, mesh->vertexCount);
-        BS_DEBUG_F(LogCategory::RENDERER, "Drew %d triangles without indices", mesh->vertexCount / 3);
     }
     glBindVertexArray(0);
 
@@ -747,6 +730,59 @@ void Renderer::DebugMatrices() {
     glm::mat4 mvp = proj * view * model;
     BS_INFO_F(LogCategory::RENDERER, "MVP matrix [0]: %.2f, %.2f, %.2f, %.2f", mvp[0][0], mvp[0][1], mvp[0][2],
               mvp[0][3]);
+}
+
+
+void Renderer::DrawColliders(const std::vector<Entity>& entities) {
+    if (!m_showColliders)
+        return;
+
+    // Enable wireframe mode
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glDisable(GL_CULL_FACE);
+    glLineWidth(2.0f);
+
+    for (const auto& entity : entities) {
+        if (entity.active && entity.hasPhysics && !entity.colliders.empty()) {
+            DrawEntityCollider(entity);
+        }
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glEnable(GL_CULL_FACE);
+    glLineWidth(1.0f);
+
+}
+
+void Renderer::DrawEntityCollider(const Entity& entity) {
+    // Choose collider color: green for dynamic, red for static
+    glm::vec3 colliderColor = entity.isDynamic ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+
+    for (const auto& collider : entity.colliders) {
+        // Calculate collider transform
+        Transform colliderTransform = entity.transform;
+
+        // Apply collider local offset and scale
+        colliderTransform.position += collider.center * entity.transform.scale;
+
+        // Apply collider size to the entity scale
+        glm::vec3 colliderScale = collider.size * entity.transform.scale;
+        colliderTransform.scale = colliderScale;
+
+        // Render based on collider type
+        switch (collider.type) {
+            case ColliderType::Box:
+                DrawCube(colliderTransform, "wireframe", colliderColor);
+                break;
+            case ColliderType::Sphere:
+                // For sphere, make scale uniform using radius
+                colliderTransform.scale = glm::vec3(collider.size.x * entity.transform.scale.x * 2.0f);
+                DrawSphere(colliderTransform, "wireframe", colliderColor);
+                break;
+            case ColliderType::Capsule:
+                break;
+        }
+    }
 }
 
 }  // namespace Blacksite

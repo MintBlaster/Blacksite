@@ -158,7 +158,7 @@ int Scene::SpawnPlane(const glm::vec3& position, const glm::vec3& size, const st
     return m_entitySystem ? m_entitySystem->SpawnPlane(position, size, shader, color) : -1;
 }
 
-int Scene::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader,
+int Scene::SpawnEntity(Entity::VisualShape shape, const glm::vec3& position, const std::string& shader,
                        const glm::vec3& color) {
     return m_entitySystem ? m_entitySystem->SpawnEntity(shape, position, shader, color) : -1;
 }

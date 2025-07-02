@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include "blacksite/core/Entity.h"
 
 namespace Blacksite {
 
@@ -46,6 +47,7 @@ class EntityHandle {
     int GetId() const { return m_id; }
 
   private:
+    void RecreatePhysicsBodyWithScale(Entity& entity, const glm::vec3& scale);
     EntitySystem* m_entitySystem;
     PhysicsSystem* m_physicsSystem;
     int m_id;

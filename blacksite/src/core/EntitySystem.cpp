@@ -21,7 +21,7 @@ int EntitySystem::SpawnPlane(const glm::vec3& position, const glm::vec3& size) {
     return SpawnPlane(position, size, "basic");
 }
 
-// Shader-specific versions - NEW METHODS
+// Shader-specific versions
 int EntitySystem::SpawnCube(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
     if (!m_physicsSystem) {
         BS_ERROR(LogCategory::CORE, "EntitySystem: No physics system available!");
@@ -30,21 +30,25 @@ int EntitySystem::SpawnCube(const glm::vec3& position, const std::string& shader
 
     Entity entity(Entity::CUBE, shader);
     entity.transform.position = position;
+    entity.transform.scale = glm::vec3(1.0f);
     entity.color = color;
+    entity.id = m_nextEntityId;  // Set the ID
 
-    // Always create physics body (physics-first!)
-    entity.physicsBody = m_physicsSystem->CreateBoxBody(position, {1.0f, 1.0f, 1.0f}, false);
-    entity.hasPhysics = true;
-
+    // Add entity to vector FIRST
     int id = m_nextEntityId++;
     m_entities.push_back(entity);
     m_entityNames.push_back("Cube_" + std::to_string(id));
 
-    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned cube entity (ID: %d, shader: %s, dynamic: true)",
-              id, shader.c_str());
+    // NOW create physics body (entity is in vector)
+    Entity& storedEntity = m_entities[id];  // Get reference to stored entity
+    storedEntity.physicsBody = m_physicsSystem->CreatePhysicsBody(storedEntity);
+    storedEntity.hasPhysics = true;
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned cube with %zu colliders", storedEntity.colliders.size());
     return id;
 }
 
+// Apply same fix to SpawnSphere and SpawnPlane
 int EntitySystem::SpawnSphere(const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
     if (!m_physicsSystem) {
         BS_ERROR(LogCategory::CORE, "EntitySystem: No physics system available!");
@@ -53,18 +57,19 @@ int EntitySystem::SpawnSphere(const glm::vec3& position, const std::string& shad
 
     Entity entity(Entity::SPHERE, shader);
     entity.transform.position = position;
+    entity.transform.scale = glm::vec3(1.0f);
     entity.color = color;
-
-    // Always create physics body (physics-first!)
-    entity.physicsBody = m_physicsSystem->CreateSphereBody(position, 0.5f, false);
-    entity.hasPhysics = true;
+    entity.id = m_nextEntityId;
 
     int id = m_nextEntityId++;
     m_entities.push_back(entity);
     m_entityNames.push_back("Sphere_" + std::to_string(id));
 
-    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned sphere entity (ID: %d, shader: %s, dynamic: true)",
-              id, shader.c_str());
+    Entity& storedEntity = m_entities[id];
+    storedEntity.physicsBody = m_physicsSystem->CreatePhysicsBody(storedEntity);
+    storedEntity.hasPhysics = true;
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned sphere with %zu colliders", storedEntity.colliders.size());
     return id;
 }
 
@@ -78,22 +83,24 @@ int EntitySystem::SpawnPlane(const glm::vec3& position, const glm::vec3& size, c
     entity.transform.position = position;
     entity.transform.scale = size;
     entity.color = color;
-
-    // Always create physics body (physics-first!)
-    entity.physicsBody = m_physicsSystem->CreatePlaneBody(position, size);
-    entity.hasPhysics = true;
+    entity.id = m_nextEntityId;
+    entity.isDynamic = false;
 
     int id = m_nextEntityId++;
     m_entities.push_back(entity);
     m_entityNames.push_back("Plane_" + std::to_string(id));
 
-    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned plane entity (ID: %d, shader: %s, size: %.1fx%.1fx%.1f, dynamic: true)",
-              id, shader.c_str(), size.x, size.y, size.z);
+    Entity& storedEntity = m_entities[id];
+    storedEntity.physicsBody = m_physicsSystem->CreatePhysicsBody(storedEntity);
+    storedEntity.hasPhysics = true;
+
+    BS_INFO_F(LogCategory::PHYSICS, "EntitySystem: Spawned plane with %zu colliders", storedEntity.colliders.size());
     return id;
 }
 
-// Generic spawn method - NEW METHOD
-int EntitySystem::SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
+
+// Generic spawn method
+int EntitySystem::SpawnEntity(Entity::VisualShape shape, const glm::vec3& position, const std::string& shader, const glm::vec3& color) {
     switch (shape) {
         case Entity::CUBE:
             return SpawnCube(position, shader, color);

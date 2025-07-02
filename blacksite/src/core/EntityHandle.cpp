@@ -2,6 +2,7 @@
 #include "blacksite/core/EntitySystem.h"
 #include "blacksite/physics/PhysicsSystem.h"
 #include "blacksite/core/Logger.h"
+#include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 
 namespace Blacksite {
 
@@ -33,8 +34,18 @@ EntityHandle& EntityHandle::Rotate(const glm::vec3& rotation) {
 
 EntityHandle& EntityHandle::Scale(const glm::vec3& scale) {
     if (auto* entity = m_entitySystem->GetEntityPtr(m_id)) {
+        glm::vec3 oldScale = entity->transform.scale;
+
+        // Update visual scale
         entity->transform.scale = scale;
-        // Note: Physics bodies don't typically change scale after creation
+
+        // If physics body exists and scale changed, recreate it with new scale
+        if (entity->hasPhysics && m_physicsSystem && oldScale != scale) {
+            RecreatePhysicsBodyWithScale(*entity, scale);
+        }
+
+        BS_DEBUG_F(LogCategory::CORE, "EntityHandle: Entity %d scaled to (%.2f, %.2f, %.2f)",
+                  m_id, scale.x, scale.y, scale.z);
     } else {
         BS_ERROR_F(LogCategory::CORE, "EntityHandle: Tried to scale non-existent entity %d", m_id);
     }
@@ -42,12 +53,62 @@ EntityHandle& EntityHandle::Scale(const glm::vec3& scale) {
 }
 
 EntityHandle& EntityHandle::Scale(float x, float y, float z) {
-    return Scale({x, y, z});
+    return Scale(glm::vec3(x, y, z));
 }
 
 EntityHandle& EntityHandle::Scale(float uniformScale) {
-    return Scale({uniformScale, uniformScale, uniformScale});
+    return Scale(glm::vec3(uniformScale));
 }
+
+void EntityHandle::RecreatePhysicsBodyWithScale(Entity& entity, const glm::vec3& scale) {
+    if (!entity.hasPhysics || !m_physicsSystem) {
+        BS_DEBUG_F(LogCategory::PHYSICS, "Entity %d has no physics or physics system", entity.id);
+        return;
+    }
+
+    if (entity.physicsBody.IsInvalid()) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Entity %d has invalid physics body", entity.id);
+        return;
+    }
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Scaling physics body for entity %d to (%.2f, %.2f, %.2f)",
+               entity.id, scale.x, scale.y, scale.z);
+
+    // Get the physics system
+    JPH::PhysicsSystem* joltSystem = m_physicsSystem->GetPhysicsSystem();
+    JPH::BodyInterface& bodyInterface = joltSystem->GetBodyInterface();
+
+    // Lock the body for modification
+    JPH::BodyLockWrite lock(joltSystem->GetBodyLockInterface(), entity.physicsBody);
+    if (!lock.Succeeded()) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Failed to lock body for entity %d", entity.id);
+        return;
+    }
+
+    JPH::Body& body = lock.GetBody();
+
+    // Get the current shape
+    JPH::RefConst<JPH::Shape> currentShape = body.GetShape();
+
+    // If it's already a ScaledShape, get the inner shape
+    JPH::RefConst<JPH::Shape> baseShape;
+    if (currentShape->GetSubType() == JPH::EShapeSubType::Scaled) {
+        const JPH::ScaledShape* scaledShape = static_cast<const JPH::ScaledShape*>(currentShape.GetPtr());
+        baseShape = scaledShape->GetInnerShape();
+    } else {
+        baseShape = currentShape;
+    }
+
+    // Create new scaled shape
+    JPH::Vec3 joltScale(scale.x, scale.y, scale.z);
+    JPH::RefConst<JPH::Shape> newScaledShape = new JPH::ScaledShape(baseShape, joltScale);
+
+    // Set the new shape (this is the key - using the non-locking interface since we have the lock)
+    joltSystem->GetBodyInterfaceNoLock().SetShape(entity.physicsBody, newScaledShape, true, JPH::EActivation::Activate);
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Successfully scaled physics body for entity %d using ScaledShape", entity.id);
+}
+
 
 EntityHandle& EntityHandle::Color(float r, float g, float b) {
     if (auto* entity = m_entitySystem->GetEntityPtr(m_id)) {
@@ -100,17 +161,24 @@ glm::vec3 EntityHandle::GetScale() const {
 glm::vec3 EntityHandle::GetVelocity() const {
     if (!IsValid()) return glm::vec3(0.0f);
 
-    // Get velocity from physics system
-    return m_physicsSystem->GetVelocity(m_id);
+    if (auto* entity = m_entitySystem->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics && m_physicsSystem) {
+            return m_physicsSystem->GetVelocity(entity->physicsBody);
+        }
+    }
+    return glm::vec3(0.0f);
 }
 
 glm::vec3 EntityHandle::GetAngularVelocity() const {
     if (!IsValid()) return glm::vec3(0.0f);
 
-    // Get angular velocity from physics system
-    return m_physicsSystem->GetAngularVelocity(m_id);
+    if (auto* entity = m_entitySystem->GetEntityPtr(m_id)) {
+        if (entity->hasPhysics && m_physicsSystem) {
+            return m_physicsSystem->GetAngularVelocity(entity->physicsBody);
+        }
+    }
+    return glm::vec3(0.0f);
 }
-
 glm::vec3 EntityHandle::GetColor() const {
     if (!IsValid()) return glm::vec3(1.0f);
 

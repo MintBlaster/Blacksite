@@ -1,10 +1,10 @@
 #pragma once
-#include "blacksite/core/EntitySystem.h"
-#include "blacksite/core/CameraSystem.h"
-#include "blacksite/core/EntityHandle.h"
+#include <functional>
 #include <memory>
 #include <string>
-#include <functional>
+#include "blacksite/core/CameraSystem.h"
+#include "blacksite/core/EntityHandle.h"
+#include "blacksite/core/EntitySystem.h"
 
 namespace Blacksite {
 
@@ -12,7 +12,7 @@ class PhysicsSystem;
 class Renderer;
 
 class Scene {
-public:
+  public:
     Scene(const std::string& name = "Untitled Scene");
     ~Scene();
 
@@ -44,7 +44,7 @@ public:
                    const glm::vec3& color = glm::vec3(1.0f));
 
     // Generic spawn method
-    int SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader = "basic",
+    int SpawnEntity(Entity::VisualShape shape, const glm::vec3& position, const std::string& shader = "basic",
                     const glm::vec3& color = glm::vec3(1.0f));
 
     EntityHandle GetEntity(int id);
@@ -68,7 +68,7 @@ public:
     void SetUpdateCallback(UpdateCallback callback) { m_updateCallback = callback; }
     void SetRenderCallback(RenderCallback callback) { m_renderCallback = callback; }
 
-protected:
+  protected:
     std::string m_name;
     bool m_active = false;
     bool m_initialized = false;
@@ -84,9 +84,9 @@ protected:
     UpdateCallback m_updateCallback;
     RenderCallback m_renderCallback;
 
-private:
+  private:
     void SyncPhysicsToGraphics();
     void RenderEntities(Renderer* renderer);
 };
 
-} // namespace Blacksite
+}  // namespace Blacksite

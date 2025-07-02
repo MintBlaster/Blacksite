@@ -51,7 +51,7 @@ class Engine {
                    const glm::vec3& color = glm::vec3(1.0f));
 
     // Generic spawn method
-    int SpawnEntity(Entity::Shape shape, const glm::vec3& position, const std::string& shader = "basic",
+    int SpawnEntity(Entity::VisualShape shape, const glm::vec3& position, const std::string& shader = "basic",
                     const glm::vec3& color = glm::vec3(1.0f));
 
     EntityHandle GetEntity(int id);

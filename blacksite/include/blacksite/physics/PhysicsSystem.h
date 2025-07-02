@@ -1,6 +1,8 @@
 #pragma once
 
+
 // Include our Jolt configuration first
+#include "blacksite/core/Entity.h"
 #include "JoltConfig.h"
 
 // Jolt Physics includes
@@ -58,6 +60,14 @@ class PhysicsSystem {
     void MakeBodyDynamic(JPH::BodyID bodyID);
     bool IsBodyStatic(JPH::BodyID bodyID);
 
+    JPH::BodyID CreatePhysicsBody(Entity& entity);
+    void UpdatePhysicsBody(Entity& entity);
+    void RemovePhysicsBody(Entity& entity);
+
+    // Collider management
+    void AddColliderToEntity(Entity& entity, const Collider& collider);
+    void RemoveColliderFromEntity(Entity& entity, size_t colliderIndex);
+
     // Getters for EntityHandle
     glm::vec3 GetVelocity(JPH::BodyID bodyID);
     glm::vec3 GetAngularVelocity(JPH::BodyID bodyID);
@@ -75,7 +85,7 @@ class PhysicsSystem {
     void UnmapEntity(int entityId);
 
     // Get the Jolt physics system for advanced usage
-    JPH::PhysicsSystem* GetJoltSystem() { return m_physicsSystem.get(); }
+    JPH::PhysicsSystem* GetPhysicsSystem() { return m_physicsSystem.get(); }
 
   private:
     // Jolt Physics objects
@@ -85,6 +95,10 @@ class PhysicsSystem {
 
     // Entity ID to Body ID mapping
     std::unordered_map<int, JPH::BodyID> m_entityToBodyMap;
+
+    JPH::Ref<JPH::Shape> CreateShapeFromColliders(const std::vector<Collider>& colliders, const glm::vec3& entityScale);
+    JPH::Ref<JPH::Shape> CreateSingleColliderShape(const Collider& collider, const glm::vec3& entityScale);
+    void AddDefaultColliderToEntity(Entity& entity);
 
     // Layers and filters (we'll keep it simple for now)
     static constexpr JPH::ObjectLayer NON_MOVING = 0;

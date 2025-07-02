@@ -6,6 +6,7 @@
 #include "blacksite/core/Logger.h"
 #include "Core/IssueReporting.h"
 #include "Core/Memory.h"
+#include "Physics/Collision/Shape/StaticCompoundShape.h"
 
 namespace Blacksite {
 
@@ -21,8 +22,8 @@ static void TraceImpl(const char* inFMT, ...) {
 
 #ifdef JPH_ENABLE_ASSERTS
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, JPH::uint inLine) {
-    BS_ERROR_F(Blacksite::LogCategory::PHYSICS, "[Jolt Assert] %s:%d: (%s) %s",
-               inFile, inLine, inExpression, (inMessage != nullptr ? inMessage : ""));
+    BS_ERROR_F(Blacksite::LogCategory::PHYSICS, "[Jolt Assert] %s:%d: (%s) %s", inFile, inLine, inExpression,
+               (inMessage != nullptr ? inMessage : ""));
     return true;
 }
 #endif
@@ -240,11 +241,12 @@ JPH::BodyID PhysicsSystem::CreateSphereBody(const glm::vec3& position, float rad
     return bodyID;
 }
 
-JPH::BodyID PhysicsSystem::CreatePlaneBody(const glm::vec3& position, const glm::vec3& normal) {
+JPH::BodyID PhysicsSystem::CreatePlaneBody(const glm::vec3& position, const glm::vec3& size) {
     if (!m_initialized)
         return JPH::BodyID();
 
-    JPH::RefConst<JPH::Shape> plane_shape = new JPH::BoxShape(JPH::Vec3(50.0f, 0.1f, 50.0f));
+    // Use provided size instead of hardcoded 50x0.1x50
+    JPH::RefConst<JPH::Shape> plane_shape = new JPH::BoxShape(JPH::Vec3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f));
     JPH::BodyCreationSettings body_settings(plane_shape, ToJoltPos(position), JPH::Quat::sIdentity(),
                                             JPH::EMotionType::Static, NON_MOVING);
 
@@ -337,6 +339,213 @@ bool PhysicsSystem::IsBodyStatic(JPH::BodyID bodyID) {
     return m_physicsSystem->GetBodyInterface().GetMotionType(bodyID) == JPH::EMotionType::Static;
 }
 
+JPH::BodyID PhysicsSystem::CreatePhysicsBody(Entity& entity) {
+    if (!m_initialized) {
+        BS_ERROR(LogCategory::PHYSICS, "Physics system not initialized");
+        return JPH::BodyID();
+    }
+
+    // If no colliders exist, add default based on visual shape
+    if (entity.colliders.empty()) {
+        AddDefaultColliderToEntity(entity);
+    }
+
+    // Create compound shape from all colliders
+    JPH::Ref<JPH::Shape> shape = CreateShapeFromColliders(entity.colliders, entity.transform.scale);
+    if (!shape) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Failed to create shape for entity %d", entity.id);
+        return JPH::BodyID();
+    }
+
+    // Create body settings
+    JPH::BodyCreationSettings bodySettings(shape, ToJoltPos(entity.transform.position),
+                                           ToJoltRot(entity.transform.rotation),
+                                           entity.isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
+                                           entity.isDynamic ? MOVING : NON_MOVING);
+
+    // Create and add body
+    JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(bodySettings);
+    if (!body) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Failed to create physics body for entity %d", entity.id);
+        return JPH::BodyID();
+    }
+
+    JPH::BodyID bodyID = body->GetID();
+    m_physicsSystem->GetBodyInterface().AddBody(bodyID, JPH::EActivation::Activate);
+
+    // Store mapping and update entity
+    entity.physicsBody = bodyID;
+    entity.hasPhysics = true;
+    MapEntityToBody(entity.id, bodyID);
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Created physics body for entity %d with %zu colliders", entity.id,
+               entity.colliders.size());
+
+    return bodyID;
+}
+
+void PhysicsSystem::UpdatePhysicsBody(Entity& entity) {
+    if (!entity.hasPhysics || entity.physicsBody.IsInvalid()) {
+        return;
+    }
+
+    // Remove old body
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    bodyInterface.RemoveBody(entity.physicsBody);
+    bodyInterface.DestroyBody(entity.physicsBody);
+
+    // Create new body with updated colliders
+    entity.hasPhysics = false;
+    entity.physicsBody = JPH::BodyID();
+    CreatePhysicsBody(entity);
+}
+
+void PhysicsSystem::RemovePhysicsBody(Entity& entity) {
+    if (!entity.hasPhysics || entity.physicsBody.IsInvalid()) {
+        return;
+    }
+
+    JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+    bodyInterface.RemoveBody(entity.physicsBody);
+    bodyInterface.DestroyBody(entity.physicsBody);
+
+    UnmapEntity(entity.id);
+    entity.hasPhysics = false;
+    entity.physicsBody = JPH::BodyID();
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Removed physics body for entity %d", entity.id);
+}
+
+JPH::Ref<JPH::Shape> PhysicsSystem::CreateShapeFromColliders(const std::vector<Collider>& colliders,
+                                                             const glm::vec3& entityScale) {
+    if (colliders.empty()) {
+        return nullptr;
+    }
+
+    if (colliders.size() == 1) {
+        // Single collider - create simple shape
+        return CreateSingleColliderShape(colliders[0], entityScale);
+    }
+
+    // Multiple colliders - create compound shape
+    JPH::StaticCompoundShapeSettings compoundSettings;
+
+    for (const auto& collider : colliders) {
+        JPH::Ref<JPH::Shape> shape = CreateSingleColliderShape(collider, entityScale);
+        if (shape) {
+            // Apply local transform (center and rotation)
+            glm::vec3 scaledCenter = collider.center * entityScale;
+            JPH::Vec3 position(scaledCenter.x, scaledCenter.y, scaledCenter.z);
+            JPH::Quat rotation(collider.rotation.x, collider.rotation.y, collider.rotation.z, collider.rotation.w);
+
+            compoundSettings.AddShape(position, rotation, shape);
+        }
+    }
+
+    JPH::Shape::ShapeResult result = compoundSettings.Create();
+    if (result.HasError()) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Failed to create compound shape: %s", result.GetError().c_str());
+        return nullptr;
+    }
+
+    return result.Get();
+}
+
+JPH::Ref<JPH::Shape> PhysicsSystem::CreateSingleColliderShape(const Collider& collider, const glm::vec3& entityScale) {
+    // Apply entity scale to collider size
+    glm::vec3 scaledSize = collider.size * entityScale;
+
+    // Ensure minimum size to prevent physics issues
+    scaledSize.x = std::max(scaledSize.x, 0.01f);
+    scaledSize.y = std::max(scaledSize.y, 0.01f);
+    scaledSize.z = std::max(scaledSize.z, 0.01f);
+
+    BS_DEBUG(LogCategory::PHYSICS, "CreateSingleColliderShape:");
+    BS_DEBUG_F(LogCategory::PHYSICS, "  Original collider size: (%.2f, %.2f, %.2f)", collider.size.x, collider.size.y,
+               collider.size.z);
+    BS_DEBUG_F(LogCategory::PHYSICS, "  Entity scale: (%.2f, %.2f, %.2f)", entityScale.x, entityScale.y, entityScale.z);
+    BS_DEBUG_F(LogCategory::PHYSICS, "  Final scaled size: (%.2f, %.2f, %.2f)", scaledSize.x, scaledSize.y,
+               scaledSize.z);
+
+    switch (collider.type) {
+        case ColliderType::Box: {
+            JPH::Vec3 halfExtents(scaledSize.x * 0.5f, scaledSize.y * 0.5f, scaledSize.z * 0.5f);
+            BS_DEBUG_F(LogCategory::PHYSICS, "  Box half extents: (%.2f, %.2f, %.2f)", halfExtents.GetX(),
+                       halfExtents.GetY(), halfExtents.GetZ());
+            return new JPH::BoxShape(halfExtents);
+        }
+        case ColliderType::Sphere: {
+            // For spheres, use the largest component for uniform scaling
+            float radius = std::max({scaledSize.x, scaledSize.y, scaledSize.z}) * 0.5f;
+            BS_DEBUG_F(LogCategory::PHYSICS, "  Sphere radius: %.2f", radius);
+            return new JPH::SphereShape(radius);
+        }
+        default:
+            BS_ERROR_F(LogCategory::PHYSICS, "Unknown collider type: %d", static_cast<int>(collider.type));
+            return nullptr;
+    }
+}
+
+void PhysicsSystem::AddDefaultColliderToEntity(Entity& entity) {
+    Collider defaultCollider;
+
+    switch (entity.shape) {
+        case Entity::CUBE:
+            defaultCollider.type = ColliderType::Box;
+            defaultCollider.size = glm::vec3(1.0f);
+            break;
+        case Entity::SPHERE:
+            defaultCollider.type = ColliderType::Sphere;
+            defaultCollider.size = glm::vec3(1.f, 0.0f, 0.0f);
+            break;
+        case Entity::PLANE:
+            defaultCollider.type = ColliderType::Box;
+            // Jolt Physics requires that all half extents must be >= convex radius (which is typically around 0.05).
+            // Y would become too small on .1f.
+            defaultCollider.size = glm::vec3(1.0f, .2f, 1.0f);
+            break;
+    }
+
+    entity.colliders.push_back(defaultCollider);
+    BS_DEBUG_F(LogCategory::PHYSICS, "Added default collider to entity %d (type: %d, size: %.2f,%.2f,%.2f)", entity.id,
+               static_cast<int>(defaultCollider.type), defaultCollider.size.x, defaultCollider.size.y,
+               defaultCollider.size.z);
+}
+
+void PhysicsSystem::AddColliderToEntity(Entity& entity, const Collider& collider) {
+    entity.colliders.push_back(collider);
+
+    // If entity already has physics, update the body
+    if (entity.hasPhysics) {
+        UpdatePhysicsBody(entity);
+    }
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Added collider to entity %d (total: %zu)", entity.id, entity.colliders.size());
+}
+
+void PhysicsSystem::RemoveColliderFromEntity(Entity& entity, size_t colliderIndex) {
+    if (colliderIndex >= entity.colliders.size()) {
+        BS_ERROR_F(LogCategory::PHYSICS, "Invalid collider index %zu for entity %d", colliderIndex, entity.id);
+        return;
+    }
+
+    entity.colliders.erase(entity.colliders.begin() + colliderIndex);
+
+    // If entity has physics, update the body
+    if (entity.hasPhysics) {
+        if (entity.colliders.empty()) {
+            // No colliders left - remove physics body
+            RemovePhysicsBody(entity);
+        } else {
+            // Update with remaining colliders
+            UpdatePhysicsBody(entity);
+        }
+    }
+
+    BS_DEBUG_F(LogCategory::PHYSICS, "Removed collider from entity %d (remaining: %zu)", entity.id,
+               entity.colliders.size());
+}
+
 glm::vec3 PhysicsSystem::GetVelocity(JPH::BodyID bodyID) {
     if (!m_initialized || !m_physicsSystem) {
         return glm::vec3(0.0f);
@@ -411,7 +620,7 @@ JPH::BodyID PhysicsSystem::GetBodyIDFromEntityID(int entityId) {
     if (it != m_entityToBodyMap.end()) {
         return it->second;
     }
-    return JPH::BodyID(); // Invalid body ID
+    return JPH::BodyID();  // Invalid body ID
 }
 
 void PhysicsSystem::MapEntityToBody(int entityId, JPH::BodyID bodyID) {
@@ -421,12 +630,16 @@ void PhysicsSystem::MapEntityToBody(int entityId, JPH::BodyID bodyID) {
 void PhysicsSystem::UnmapEntity(int entityId) {
     auto it = m_entityToBodyMap.find(entityId);
     if (it != m_entityToBodyMap.end()) {
-        // Optionally remove the body from physics system here
-        JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
-        bodyInterface.RemoveBody(it->second);
-        bodyInterface.DestroyBody(it->second);
+        JPH::BodyID bodyID = it->second;
 
         m_entityToBodyMap.erase(it);
+
+        // Then safely remove and destroy the body
+        if (!bodyID.IsInvalid() && m_physicsSystem) {
+            JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+            bodyInterface.RemoveBody(bodyID);
+            bodyInterface.DestroyBody(bodyID);
+        }
     }
 }
 

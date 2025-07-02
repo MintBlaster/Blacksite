@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include "blacksite/core/Entity.h"
 #include "Camera.h"
 #include "GeometryManager.h"
 #include "RenderCommand.h"
@@ -26,7 +27,8 @@ class Renderer {
     void DrawPlane(const Transform& transform, const glm::vec3& color = glm::vec3(1.0f));
 
     void DrawCube(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
-    void DrawSphere(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
+    void DrawSphere(const Transform& transform, const std::string& shaderName,
+                    const glm::vec3& color = glm::vec3(1.0f));
     void DrawPlane(const Transform& transform, const std::string& shaderName, const glm::vec3& color = glm::vec3(1.0f));
 
     // Advanced rendering
@@ -46,6 +48,12 @@ class Renderer {
     void DebugShaderCompilation();
     void DebugGeometry();
     void DebugMatrices();
+
+    void DrawColliders(const std::vector<Entity>& entities);
+    void DrawEntityCollider(const Entity& entity);
+
+    void SetShowColliders(bool show) { m_showColliders = show; }
+    bool GetShowColliders() const { return m_showColliders; }
 
   private:
     ShaderManager m_shaderManager;      // Manages our compiled shaders
@@ -71,5 +79,7 @@ class Renderer {
 
     // Transform math
     glm::mat4 CreateModelMatrix(const Transform& transform);
+
+    bool m_showColliders = false;
 };
 }  // namespace Blacksite
