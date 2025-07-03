@@ -6,14 +6,14 @@ namespace BlacksiteEditor {
 class EditorCore;
 
 class InspectorPanel {
-public:
+  public:
     InspectorPanel(EditorCore* editorCore);
     ~InspectorPanel() = default;
 
     void Update(float deltaTime);
     void Render();
 
-private:
+  private:
     EditorCore* m_editorCore;
     bool m_isOpen = true;
 
@@ -23,7 +23,10 @@ private:
     void RenderRenderComponent(Blacksite::Entity* entity);
     void RenderComponentButtons(Blacksite::Entity* entity);
 
-    bool DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f);
+    void RenderEntityActions(Blacksite::Entity* entity);
+
+    bool DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f,
+                         float columnWidth = 100.0f);
     bool DrawColorControl(const std::string& label, glm::vec3& color);
 };
 

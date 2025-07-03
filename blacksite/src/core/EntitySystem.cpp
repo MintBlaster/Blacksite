@@ -150,6 +150,12 @@ void EntitySystem::RemoveEntity(int id) {
     }
 }
 
+void EntitySystem::Clear(){
+    for (auto entity : m_entities){
+        RemoveEntity(entity.id);
+    }
+}
+
 void EntitySystem::DuplicateEntity(int id) {
     if (!IsValidEntity(id)) {
         BS_WARN_F(LogCategory::CORE, "EntitySystem: Tried to duplicate invalid entity (ID: %d)", id);

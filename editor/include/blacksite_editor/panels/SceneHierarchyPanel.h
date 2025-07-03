@@ -29,6 +29,8 @@ private:
     void RenderEntityNode(const Blacksite::Entity& entity);
     void RenderContextMenu();
     void HandleEntitySelection(int entityId);
+    void RenderEntityActions(Blacksite::Entity* entity);
+
 };
 
 }  // namespace BlacksiteEditor

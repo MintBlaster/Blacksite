@@ -126,20 +126,20 @@ void AssetBrowserPanel::RenderAssetGrid() {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.8f, 1.0f));
         }
 
-        // Choose icon based on type
-        const char* icon = "📄"; // Default file
+        // Choose icon based on type (removed emojis for professionalism and compatibility)
+        const char* icon = ""; // Default file
         if (item.isDirectory) {
-            icon = "📁";
+            icon = "";
         } else if (IsImageFile(item.extension)) {
-            icon = "🖼️";
+            icon = "";
         } else if (IsModelFile(item.extension)) {
-            icon = "🎲";
+            icon = "";
         } else if (IsAudioFile(item.extension)) {
-            icon = "🔊";
+            icon = "";
         } else if (item.extension == ".bscn") {
-            icon = "🎬";
+            icon = "";
         } else if (item.extension == ".vert" || item.extension == ".frag" || item.extension == ".glsl") {
-            icon = "⚡";
+            icon = "";
         }
 
         if (ImGui::Button((std::string(icon) + "\n" + item.name).c_str(), ImVec2(itemSize, itemSize))) {

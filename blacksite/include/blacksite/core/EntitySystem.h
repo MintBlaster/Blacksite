@@ -35,6 +35,7 @@ class EntitySystem {
 
     void RemoveEntity(int id);
     void DuplicateEntity(int id);
+    void Clear();
 
     // Shader and color management methods
     void SetEntityShader(int id, const std::string& shader);

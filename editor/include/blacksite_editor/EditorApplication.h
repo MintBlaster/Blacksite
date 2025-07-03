@@ -45,6 +45,10 @@ class EditorApplication : public Blacksite::Application {
     std::unique_ptr<PerformancePanel> m_performancePanel;
 
     // Editor state
+    bool m_showHierarchy = true;
+    bool m_showInspector = true;
+    bool m_showConsole = true;
+    bool m_showPerformance = true;
     bool m_showDemoWindow = false;
     bool m_showMetrics = false;
     int m_selectedEntityId = -1;
@@ -56,6 +60,8 @@ class EditorApplication : public Blacksite::Application {
     void RenderMainDockSpace();
     void HandleEditorInput();
     void ShutdownImGui();
+    void SetupTheme();
+    void LoadEditorFonts(ImGuiIO& io);
 };
 
 }  // namespace BlacksiteEditor

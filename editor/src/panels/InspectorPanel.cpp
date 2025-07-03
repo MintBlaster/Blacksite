@@ -41,10 +41,16 @@ void InspectorPanel::Render() {
 }
 
 void InspectorPanel::RenderEntityInspector(Blacksite::Entity* entity) {
-    // Entity header
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Bold font if available
+    // Entity header with ID and active status
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
     ImGui::Text("Entity ID: %d", entity->id);
     ImGui::PopFont();
+
+    ImGui::SameLine();
+    ImGui::Checkbox("##Active", &entity->active);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Entity Active");
+    }
 
     // Entity name
     char nameBuffer[256];
@@ -54,9 +60,6 @@ void InspectorPanel::RenderEntityInspector(Blacksite::Entity* entity) {
     if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer))) {
         entity->name = nameBuffer;
     }
-
-    // Active checkbox
-    ImGui::Checkbox("Active", &entity->active);
 
     ImGui::Separator();
 
@@ -78,11 +81,19 @@ void InspectorPanel::RenderEntityInspector(Blacksite::Entity* entity) {
     }
 
     ImGui::Separator();
+    RenderEntityActions(entity);
+
+    ImGui::Separator();
     RenderComponentButtons(entity);
 }
 
 void InspectorPanel::RenderTransformComponent(Blacksite::Entity* entity) {
     auto& transform = entity->transform;
+
+    // Store original values to detect changes
+    glm::vec3 originalPos = transform.position;
+    glm::vec3 originalRot = transform.rotation;
+    glm::vec3 originalScale = transform.scale;
 
     bool transformChanged = false;
 
@@ -93,21 +104,62 @@ void InspectorPanel::RenderTransformComponent(Blacksite::Entity* entity) {
     if (transformChanged) {
         // Update physics body if entity has physics
         if (entity->hasPhysics) {
-            // TODO: Sync transform changes with physics system
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                auto handle = scene->GetEntity(entity->id);
+
+                // Update position if changed
+                if (originalPos != transform.position) {
+                    handle.At(transform.position);
+                }
+
+                // Update rotation if changed
+                if (originalRot != transform.rotation) {
+                    handle.Rotate(transform.rotation);
+                }
+
+                // Update scale if changed
+                if (originalScale != transform.scale) {
+                    handle.Scale(transform.scale);
+                    // For Jolt physics, scaling might require body recreation
+                    handle.RecreatePhysicsBodyWithScale(*entity, transform.scale);
+                }
+            }
         }
     }
 
-    // Quick transform buttons
+    // Quick transform buttons with proper physics sync
+    ImGui::Spacing();
     if (ImGui::Button("Reset Position")) {
         transform.position = {0, 0, 0};
+        if (entity->hasPhysics) {
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                scene->GetEntity(entity->id).At(transform.position);
+            }
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset Rotation")) {
         transform.rotation = {0, 0, 0};
+        if (entity->hasPhysics) {
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                scene->GetEntity(entity->id).Rotate(transform.rotation);
+            }
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("Reset Scale")) {
         transform.scale = {1, 1, 1};
+        if (entity->hasPhysics) {
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                auto handle = scene->GetEntity(entity->id);
+                handle.Scale(transform.scale);
+                handle.RecreatePhysicsBodyWithScale(*entity, transform.scale);
+            }
+        }
     }
 }
 
@@ -122,33 +174,56 @@ void InspectorPanel::RenderPhysicsComponent(Blacksite::Entity* entity) {
         auto* scene = m_editorCore->GetActiveScene();
         if (scene) {
             auto handle = scene->GetEntity(entity->id);
-            if (entity->isDynamic) {
-                handle.MakeDynamic();
-            } else {
-                handle.MakeStatic();
+            try {
+                if (entity->isDynamic) {
+                    handle.MakeDynamic();
+                } else {
+                    handle.MakeStatic();
+                }
+            } catch (const std::exception& e) {
+                // Handle physics system errors
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Physics Error: %s", e.what());
+                entity->isDynamic = wasDynamic; // Revert on error
             }
         }
     }
 
-    // Physics controls
+    // Show current physics state
+    ImGui::Text("Physics Body ID: %u", entity->physicsBody.GetIndexAndSequenceNumber());
+    ImGui::Text("Is Dynamic: %s", entity->isDynamic ? "Yes" : "No");
+
+    ImGui::Spacing();
+
+    // Physics controls with error handling
     if (ImGui::Button("Make Static")) {
-        entity->isDynamic = false;
         auto* scene = m_editorCore->GetActiveScene();
         if (scene) {
-            scene->GetEntity(entity->id).MakeStatic();
+            try {
+                entity->isDynamic = false;
+                scene->GetEntity(entity->id).MakeStatic();
+            } catch (const std::exception& e) {
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error: %s", e.what());
+            }
         }
     }
     ImGui::SameLine();
     if (ImGui::Button("Make Dynamic")) {
-        entity->isDynamic = true;
         auto* scene = m_editorCore->GetActiveScene();
         if (scene) {
-            scene->GetEntity(entity->id).MakeDynamic();
+            try {
+                entity->isDynamic = true;
+                scene->GetEntity(entity->id).MakeDynamic();
+            } catch (const std::exception& e) {
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error: %s", e.what());
+            }
         }
     }
 
-    // Physics actions
+    // Physics actions (only for dynamic bodies)
     if (entity->isDynamic) {
+        ImGui::Spacing();
+        ImGui::Text("Physics Actions:");
+
         if (ImGui::Button("Apply Upward Force")) {
             auto* scene = m_editorCore->GetActiveScene();
             if (scene) {
@@ -161,10 +236,18 @@ void InspectorPanel::RenderPhysicsComponent(Blacksite::Entity* entity) {
             if (scene) {
                 glm::vec3 randomForce = {
                     (rand() % 20) - 10.0f,
-                    rand() % 10,
+                    (float)(rand() % 10),
                     (rand() % 20) - 10.0f
                 };
                 scene->GetEntity(entity->id).Push(randomForce);
+            }
+        }
+
+        if (ImGui::Button("Stop Movement")) {
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                scene->GetEntity(entity->id).SetVelocity({0, 0, 0});
+                scene->GetEntity(entity->id).SetAngularVelocity({0, 0, 0});
             }
         }
     }
@@ -178,7 +261,7 @@ void InspectorPanel::RenderRenderComponent(Blacksite::Entity* entity) {
     int currentShape = static_cast<int>(entity->shape);
     if (ImGui::Combo("Shape", &currentShape, shapes, IM_ARRAYSIZE(shapes))) {
         entity->shape = static_cast<Blacksite::Entity::VisualShape>(currentShape);
-        // TODO: Update mesh/rendering
+        // TODO: Update mesh/rendering and physics collider if needed
     }
 
     // Shader selection
@@ -208,18 +291,78 @@ void InspectorPanel::RenderRenderComponent(Blacksite::Entity* entity) {
     }
 }
 
+void InspectorPanel::RenderEntityActions(Blacksite::Entity* entity) {
+    ImGui::Text("Entity Actions");
+
+    // Duplicate button
+    if (ImGui::Button("Duplicate Entity", ImVec2(ImGui::GetContentRegionAvail().x * 0.5f - 5, 0))) {
+        m_editorCore->DuplicateEntity(entity->id);
+    }
+
+    ImGui::SameLine();
+
+    // Delete button with confirmation
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.8f, 0.2f, 0.2f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.9f, 0.3f, 0.3f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{0.7f, 0.1f, 0.1f, 1.0f});
+
+    if (ImGui::Button("Delete Entity", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+        ImGui::OpenPopup("Delete Entity?");
+    }
+
+    ImGui::PopStyleColor(3);
+
+    // Confirmation popup
+    if (ImGui::BeginPopupModal("Delete Entity?", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Are you sure you want to delete '%s'?", entity->name.c_str());
+        ImGui::Text("This action cannot be undone.");
+        ImGui::Separator();
+
+        if (ImGui::Button("Delete", ImVec2(120, 0))) {
+            m_editorCore->DeleteEntity(entity->id);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SetItemDefaultFocus();
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
 void InspectorPanel::RenderComponentButtons(Blacksite::Entity* entity) {
     ImGui::Text("Components");
 
     if (!entity->hasPhysics) {
-        if (ImGui::Button("Add Physics Component")) {
+        if (ImGui::Button("Add Physics Component", ImVec2(-1, 0))) {
             entity->hasPhysics = true;
-            // TODO: Create physics body
+            // Create physics body
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                auto handle = scene->GetEntity(entity->id);
+                try {
+                    if (entity->isDynamic) {
+                        handle.MakeDynamic();
+                    } else {
+                        handle.MakeStatic();
+                    }
+                } catch (const std::exception& e) {
+                    ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error adding physics: %s", e.what());
+                    entity->hasPhysics = false; // Revert on error
+                }
+            }
         }
     } else {
-        if (ImGui::Button("Remove Physics Component")) {
+        if (ImGui::Button("Remove Physics Component", ImVec2(-1, 0))) {
             entity->hasPhysics = false;
-            // TODO: Remove physics body
+            // Remove physics body
+            auto* scene = m_editorCore->GetActiveScene();
+            if (scene) {
+                // You'll need to implement RemovePhysicsBody in EntityHandle
+                // auto handle = scene->GetEntity(entity->id);
+                // handle.RemovePhysicsBody();
+            }
         }
     }
 }

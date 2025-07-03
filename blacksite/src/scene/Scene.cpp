@@ -96,8 +96,7 @@ void Scene::Shutdown() {
 
 void Scene::Clear() {
     if (m_entitySystem) {
-        // Clear all entities (you'll need to implement this in EntitySystem)
-        // m_entitySystem->Clear();
+        m_entitySystem->Clear();
     }
 }
 
@@ -174,8 +173,7 @@ EntityHandle Scene::GetEntity(int id) {
 }
 
 void Scene::RemoveEntity(int id) {
-    // Implementation depends on your EntitySystem
-    // m_entitySystem->RemoveEntity(id);
+   m_entitySystem->RemoveEntity(id);
 }
 
 // --- Camera Management Implementation ---

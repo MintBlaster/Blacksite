@@ -210,6 +210,8 @@ JPH::BodyID PhysicsSystem::CreateBoxBody(const glm::vec3& position, const glm::v
                                             isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
                                             isStatic ? NON_MOVING : MOVING);
 
+    body_settings.mAllowDynamicOrKinematic = true;
+
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
         BS_ERROR(LogCategory::PHYSICS, "Failed to create box body!");
@@ -230,6 +232,8 @@ JPH::BodyID PhysicsSystem::CreateSphereBody(const glm::vec3& position, float rad
                                             isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
                                             isStatic ? NON_MOVING : MOVING);
 
+    body_settings.mAllowDynamicOrKinematic = true;
+
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
         BS_ERROR(LogCategory::PHYSICS, "Failed to create sphere body!");
@@ -249,6 +253,8 @@ JPH::BodyID PhysicsSystem::CreatePlaneBody(const glm::vec3& position, const glm:
     JPH::RefConst<JPH::Shape> plane_shape = new JPH::BoxShape(JPH::Vec3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f));
     JPH::BodyCreationSettings body_settings(plane_shape, ToJoltPos(position), JPH::Quat::sIdentity(),
                                             JPH::EMotionType::Static, NON_MOVING);
+
+    body_settings.mAllowDynamicOrKinematic = true;
 
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(body_settings);
     if (body == nullptr) {
@@ -362,6 +368,8 @@ JPH::BodyID PhysicsSystem::CreatePhysicsBody(Entity& entity) {
                                            ToJoltRot(entity.transform.rotation),
                                            entity.isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
                                            entity.isDynamic ? MOVING : NON_MOVING);
+
+    bodySettings.mAllowDynamicOrKinematic = true;
 
     // Create and add body
     JPH::Body* body = m_physicsSystem->GetBodyInterface().CreateBody(bodySettings);

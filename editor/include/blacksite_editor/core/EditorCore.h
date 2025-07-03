@@ -30,7 +30,9 @@ class EditorCore {
     // Entity management
     int CreateEntity(const std::string& type);
     void DeleteEntity(int entityId);
-    void DuplicateEntity(int entityId);
+    int DuplicateEntity(int entityId);
+    void ClearScene();
+    void SelectEntity(int entityId);
 
     // Editor settings
     bool IsGridVisible() const { return m_showGrid; }
@@ -51,6 +53,8 @@ class EditorCore {
     float m_frameTime = 0.0f;
     int m_frameCount = 0;
     float m_fps = 0.0f;
+
+    int m_selectedEntity = -1;
 
     void UpdatePerformanceStats(float deltaTime);
 };

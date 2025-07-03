@@ -1,7 +1,7 @@
 #include "blacksite_editor/core/EditorCore.h"
+#include <blacksite/core/EntitySystem.h>
 #include <blacksite/core/Logger.h>
 #include <blacksite/scene/Scene.h>
-#include <blacksite/core/EntitySystem.h>
 
 namespace BlacksiteEditor {
 
@@ -32,12 +32,13 @@ Blacksite::Scene* EditorCore::GetActiveScene() {
 }
 
 void EditorCore::NewScene(const std::string& name) {
-    if (!m_engine) return;
+    if (!m_engine)
+        return;
 
     auto scene = m_engine->CreateScene(name);
     if (scene) {
         m_engine->SwitchToScene(name);
-        m_selectedEntityId = -1; // Clear selection
+        m_selectedEntityId = -1;  // Clear selection
         BS_INFO_F(Blacksite::LogCategory::CORE, "Created new scene: %s", name.c_str());
     } else {
         BS_ERROR_F(Blacksite::LogCategory::CORE, "Failed to create scene: %s", name.c_str());
@@ -53,15 +54,15 @@ void EditorCore::SaveScene(const std::string& filename) {
 
     // TODO: Implement scene serialization
     // For now, just log the action
-    BS_INFO_F(Blacksite::LogCategory::CORE, "Saving scene '%s' to: %s",
-              scene->GetName().c_str(), filename.c_str());
+    BS_INFO_F(Blacksite::LogCategory::CORE, "Saving scene '%s' to: %s", scene->GetName().c_str(), filename.c_str());
 
     // Future implementation would serialize the scene to JSON/binary format
     // scene->Serialize(filename);
 }
 
 void EditorCore::LoadScene(const std::string& filename) {
-    if (!m_engine) return;
+    if (!m_engine)
+        return;
 
     // TODO: Implement scene deserialization
     // For now, just log the action
@@ -89,7 +90,7 @@ int EditorCore::CreateEntity(const std::string& type) {
     glm::vec3 cameraPos = scene->GetCameraPosition();
     glm::vec3 cameraTarget = scene->GetCameraTarget();
     glm::vec3 forward = normalize(cameraTarget - cameraPos);
-    spawnPosition = cameraPos + forward * 5.0f; // Spawn 5 units in front of camera
+    spawnPosition = cameraPos + forward * 5.0f;  // Spawn 5 units in front of camera
 
     if (type == "Cube" || type == "cube") {
         entityId = scene->SpawnCube(spawnPosition, "basic", {0.8f, 0.2f, 0.2f});
@@ -150,23 +151,23 @@ void EditorCore::DeleteEntity(int entityId) {
     BS_INFO_F(Blacksite::LogCategory::CORE, "Deleted entity: %s (ID: %d)", entityName.c_str(), entityId);
 }
 
-void EditorCore::DuplicateEntity(int entityId) {
+int EditorCore::DuplicateEntity(int entityId) {
     auto* scene = GetActiveScene();
     if (!scene) {
         BS_WARN(Blacksite::LogCategory::CORE, "No active scene to duplicate entity in");
-        return;
+        return -1;
     }
 
     auto* entitySystem = scene->GetEntitySystem();
     if (!entitySystem || !entitySystem->IsValidEntity(entityId)) {
         BS_WARN_F(Blacksite::LogCategory::CORE, "Invalid entity ID for duplication: %d", entityId);
-        return;
+        return -1;
     }
 
     auto* originalEntity = entitySystem->GetEntityPtr(entityId);
     if (!originalEntity) {
         BS_ERROR_F(Blacksite::LogCategory::CORE, "Could not get entity pointer for ID: %d", entityId);
-        return;
+        return -1;
     }
 
     // Create new entity of the same type
@@ -181,13 +182,13 @@ void EditorCore::DuplicateEntity(int entityId) {
             newEntityId = scene->SpawnSphere(newPosition, originalEntity->shader, originalEntity->color);
             break;
         case Blacksite::Entity::PLANE:
-            newEntityId = scene->SpawnPlane(newPosition, originalEntity->transform.scale,
-                                          originalEntity->shader, originalEntity->color);
+            newEntityId = scene->SpawnPlane(newPosition, originalEntity->transform.scale, originalEntity->shader,
+                                            originalEntity->color);
             break;
         default:
             BS_ERROR_F(Blacksite::LogCategory::CORE, "Unknown entity shape for duplication: %d",
                        static_cast<int>(originalEntity->shape));
-            return;
+            return -1;
     }
 
     if (newEntityId >= 0) {
@@ -212,13 +213,26 @@ void EditorCore::DuplicateEntity(int entityId) {
         // Select the new entity
         SetSelectedEntity(newEntityId);
 
-        BS_INFO_F(Blacksite::LogCategory::CORE, "Duplicated entity: %s -> %s (ID: %d -> %d)",
-                  originalName.c_str(), newName.c_str(), entityId, newEntityId);
+        BS_INFO_F(Blacksite::LogCategory::CORE, "Duplicated entity: %s -> %s (ID: %d -> %d)", originalName.c_str(),
+                  newName.c_str(), entityId, newEntityId);
+
+        return newEntityId;
     } else {
         BS_ERROR_F(Blacksite::LogCategory::CORE, "Failed to duplicate entity ID: %d", entityId);
     }
 }
 
+void EditorCore::ClearScene() {
+    auto* scene = GetActiveScene();
+    if (scene) {
+        scene->Clear();
+        m_selectedEntity = -1;
+    }
+}
+
+void EditorCore::SelectEntity(int entityId) {
+    m_selectedEntity = entityId;
+}
 
 void EditorCore::UpdatePerformanceStats(float deltaTime) {
     m_frameTime = deltaTime;
