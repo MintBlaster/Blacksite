@@ -37,6 +37,12 @@ class Scene {
     int SpawnSphere(const glm::vec3& position);
     int SpawnPlane(const glm::vec3& position, const glm::vec3& size);
 
+    template<typename T>
+    EntityHandle SpawnEntity() {
+        static_assert(std::is_base_of_v<Entity, T>, "T must derive from Entity");
+        return m_entitySystem->Spawn<T>();
+    }
+
     // Shader-specific methods
     int SpawnCube(const glm::vec3& position, const std::string& shader, const glm::vec3& color = glm::vec3(1.0f));
     int SpawnSphere(const glm::vec3& position, const std::string& shader, const glm::vec3& color = glm::vec3(1.0f));

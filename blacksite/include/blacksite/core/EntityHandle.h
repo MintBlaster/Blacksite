@@ -1,19 +1,20 @@
 #pragma once
-
 #include <glm/glm.hpp>
-#include "blacksite/core/Entity.h"
 
 namespace Blacksite {
 
+// Forward declarations only
 class EntitySystem;
 class PhysicsSystem;
+class Entity;
 
 class EntityHandle {
   public:
     EntityHandle(EntitySystem* entitySystem, PhysicsSystem* physicsSystem, int id);
 
-    // Transform manipulation (syncs with physics automatically)
+    // Transform manipulation
     EntityHandle& At(const glm::vec3& position);
+    EntityHandle& At(float x, float y, float z);
     EntityHandle& Rotate(const glm::vec3& rotation);
     EntityHandle& Scale(const glm::vec3& scale);
     EntityHandle& Scale(float x, float y, float z);
@@ -26,10 +27,14 @@ class EntityHandle {
     EntityHandle& SetAngularVelocity(const glm::vec3& angularVel);
     EntityHandle& MakeStatic();
     EntityHandle& MakeDynamic();
+    void RecreatePhysicsBodyWithScale(Entity& entity, const glm::vec3& scale);
 
     // Appearance
     EntityHandle& Color(float r, float g, float b);
     EntityHandle& Color(const glm::vec3& color);
+
+    // Space management
+    EntityHandle& InSpace(int space);
 
     // Getters
     glm::vec3 GetPosition() const;
@@ -47,7 +52,6 @@ class EntityHandle {
     int GetId() const { return m_id; }
 
   private:
-    void RecreatePhysicsBodyWithScale(Entity& entity, const glm::vec3& scale);
     EntitySystem* m_entitySystem;
     PhysicsSystem* m_physicsSystem;
     int m_id;

@@ -40,12 +40,18 @@ bool Scene::Initialize(PhysicsSystem* physicsSystem, float aspectRatio) {
     return true;
 }
 
+// Add to Scene::Update method
 void Scene::Update(float deltaTime) {
-    if (!m_initialized || !m_active)
+    if (!m_active || !m_initialized)
         return;
 
-    // Update camera
-    m_cameraSystem->Update(deltaTime);
+    // Update all entities
+    auto& entities = m_entitySystem->GetEntities();
+    for (auto& entity : entities) {
+        if (entity.active) {
+            entity.Update(deltaTime);
+        }
+    }
 
     // Sync physics to graphics
     SyncPhysicsToGraphics();

@@ -477,4 +477,11 @@ void Renderer::DrawEntityCollider(const Entity& entity) {
     }
 }
 
+GLuint Renderer::GetSceneTexture() const {
+    if (m_postProcessManager && m_postProcessManager->IsInitialized()) {
+        return m_postProcessManager->GetSceneTexture();
+    }
+    return 0;
+}
+
 }  // namespace Blacksite

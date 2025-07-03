@@ -1,9 +1,11 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <memory>
 #include <string>
 #include <vector>
 #include "blacksite/core/Entity.h"
+#include "blacksite/core/EntityHandle.h"
 
 namespace Blacksite {
 
@@ -48,12 +50,35 @@ class EntitySystem {
 
     const std::vector<Entity>& GetEntities() const { return m_entities; }
     std::vector<Entity>& GetEntities() { return m_entities; }
+    EntityHandle GetEntityHandle(int id) { return EntityHandle(this, m_physicsSystem, id); }
 
   private:
     std::vector<Entity> m_entities;
     std::vector<std::string> m_entityNames;
     PhysicsSystem* m_physicsSystem = nullptr;
     int m_nextEntityId = 0;
+
+  public:
+    template <typename T>
+    int Spawn() {
+        static_assert(std::is_base_of_v<Entity, T>, "T must derive from Entity");
+
+        // Create entity instance
+        auto entity = std::make_unique<T>();
+        int id = m_nextEntityId++;
+        entity->id = id;
+
+        // Add to entities vector
+        if (id >= static_cast<int>(m_entities.size())) {
+            m_entities.resize(id + 1);
+        }
+        m_entities[id] = *entity;
+
+        // Call OnSpawn for custom initialization
+        m_entities[id].OnSpawn();
+
+        return id;
+    }
 };
 
 }  // namespace Blacksite

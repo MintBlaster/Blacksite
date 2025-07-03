@@ -1,7 +1,6 @@
 #pragma once
 #include <GL/glew.h>
 #include <string>
-#include <vector>
 
 namespace Blacksite {
 
@@ -14,13 +13,13 @@ struct PostProcessSettings {
     bool showBloomTexture = false;
 
     // Bloom
-    float bloomThreshold = 1.2f;   // Only really bright pixels bloom (prevents flashlight vomit)
-    float bloomStrength = 0.6f;    // Less aggressive glow
-    int bloomBlurPasses = 3;       // Less blur for sharper bloom edges
+    float bloomThreshold = 1.2f;  // Only really bright pixels bloom (prevents flashlight vomit)
+    float bloomStrength = 0.6f;   // Less aggressive glow
+    int bloomBlurPasses = 3;      // Less blur for sharper bloom edges
 
     // Tonemapping & exposure
-    float exposure = 1.1f;         // Slightly boosted but not overblown
-    float gamma = 2.0f;            // Less contrasty than 2.2, keeps mids readable
+    float exposure = 1.1f;  // Slightly boosted but not overblown
+    float gamma = 2.0f;     // Less contrasty than 2.2, keeps mids readable
 };
 
 struct FrameBuffer {
@@ -46,6 +45,14 @@ class PostProcessManager {
     PostProcessSettings& GetSettings() { return m_settings; }
 
     void RenderDebugUI();
+
+    GLuint GetSceneTexture() const { return m_mainBuffer.colorTexture; }
+    GLuint GetDepthTexture() const { return m_mainBuffer.depthTexture; }
+    bool IsInitialized() const { return m_initialized; }
+
+    // Optional: Get specific buffer textures
+    GLuint GetMainColorTexture() const { return m_mainBuffer.colorTexture; }
+    GLuint GetBloomTexture() const { return m_bloomBuffer.colorTexture; }
 
   private:
     // Core functionality

@@ -34,6 +34,12 @@ class Engine {
         return m_sceneSystem ? m_sceneSystem->CreateScene<T>(name) : nullptr;
     }
 
+    template<typename T>
+    EntityHandle Spawn() {
+        Scene* activeScene = GetActiveScene();
+        return activeScene ? activeScene->SpawnEntity<T>() : EntityHandle(nullptr, nullptr, -1);
+    }
+
     bool SwitchToScene(const std::string& name) { return m_sceneSystem ? m_sceneSystem->SwitchToScene(name) : false; }
 
     Scene* GetActiveScene() { return m_sceneSystem ? m_sceneSystem->GetActiveScene() : nullptr; }

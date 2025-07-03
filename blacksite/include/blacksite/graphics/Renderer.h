@@ -63,6 +63,9 @@ class Renderer {
     void SetShowColliders(bool show) { m_showColliders = show; }
     bool GetShowColliders() const { return m_showColliders; }
 
+    GLuint GetSceneTexture() const;
+    PostProcessManager* GetPostProcessManager() const { return m_postProcessManager.get(); }
+
   private:
     ShaderSystem* m_shaderSystem = nullptr;  // Reference to engine's shader system
     GeometryManager m_geometryManager;       // Keeps track of our meshes

@@ -41,7 +41,7 @@ EntityHandle& EntityHandle::Scale(const glm::vec3& scale) {
 
         // If physics body exists and scale changed, recreate it with new scale
         if (entity->hasPhysics && m_physicsSystem && oldScale != scale) {
-            RecreatePhysicsBodyWithScale(*entity, scale);
+                RecreatePhysicsBodyWithScale(*entity, scale);
         }
 
         BS_DEBUG_F(LogCategory::CORE, "EntityHandle: Entity %d scaled to (%.2f, %.2f, %.2f)",
